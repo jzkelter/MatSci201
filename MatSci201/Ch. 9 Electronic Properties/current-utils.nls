@@ -1,0 +1,137 @@
+;THIS NLS FILE CONTAINS CODE THAT IS USEFUL ACROSS MODELS OF CURRENT IN MATERIALS USING FREE ELECTRON/HOLE MODELS
+
+breed [ anodes anode ]
+breed [ cathodes cathode ]
+globals [
+  charge-flow
+  flow-timer
+  old-voltage
+  old-scatter-prob
+]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; rules for charge carriers ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to accelerate-and-scatter
+  ifelse random-float 1 < scatter-prob [
+    scatter
+  ] [
+    let force charge * Voltage / world-width  ; voltage is a difference in electrostatic potential, and its spacial derivative (i.e., divided by width of circuit) is force
+    set Vx Vx + force ; electrons have negative charge -> accelerated in opposite direction
+  ]
+end
+
+
+to move-and-count-current
+  let new-x xcor + Vx
+
+  (ifelse
+    new-x > max-pxcor [ ; if crossing left to right -> 
+      set charge-flow charge-flow + charge ; defined as positive current for positive charge carrier
+      exit-and-new-electron-enter min-pxcor ; electron exits and new on enters
+    ]
+    new-x < min-pxcor [ ;cross right to left -> 
+      set charge-flow charge-flow - charge  ; defined as negative current for positive charge carrier
+      exit-and-new-electron-enter max-pxcor  ; electron exits and new on enters
+
+    ] [ ; if didn't cross boundary, just move normally
+      setxy new-x (ycor + Vy)
+    ]
+  )
+end
+
+
+to exit-and-new-electron-enter [starting-x]
+  ; x will be either min-pxcor or ma
+  hatch 1 [
+    pen-up
+    set xcor starting-x    
+    scatter  ; new electron starts with random velocity
+  ]
+  die
+end
+
+to scatter
+  ;; this is a much simplified representation indicating scattering due to point collision
+  let s 1  ; speed is reset upon scattering based on temperature
+  set Vy random-float s - random-float s
+  set Vx random-float s - random-float s
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Procedures for Visualizing the Battery ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to setup-battery-viz
+  
+  ;; now set up the Battery-negative
+  ask patches with [pxcor = max-pxcor] [
+    set pcolor red
+  ]
+
+  ;; now set up the Battery-negative
+  ask patches with [pxcor = min-pxcor] [
+    set pcolor black
+  ]
+
+  ;; create labels for the battery terminal   
+  crt 1 [
+    setxy min-pxcor mid-ycor
+    set breed cathodes
+    
+    set shape "plus"      
+  ]
+  
+
+  crt 1 [
+    setxy max-pxcor mid-ycor
+    set breed anodes      
+    set shape "minus"      
+  ]
+  
+  update-battery-size
+end
+
+to-report mid-ycor
+  ; the ycor that his in the vertical middle of the world
+  report min-pycor + (world-height - 1) / 2
+end
+
+
+to update-battery-size
+  ;; now update the size of Battery-negative
+  ask cathodes [
+    set size  0.2 * voltage
+  ]
+
+  ask anodes [
+    set size 0.2 * voltage
+  ]
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Procedures for Calculating current ;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+to setup-globals-for-current-calculations
+  set old-voltage voltage
+  set old-scatter-prob scatter-prob  
+  set charge-flow 0
+  set flow-timer 0
+end
+
+
+to-report current
+  report charge-flow / flow-timer
+end
+
+to reset-charge-flow-if-voltage-or-scatter-prob-change
+  if old-voltage != voltage or scatter-prob != old-scatter-prob [
+    set old-voltage voltage
+    set old-scatter-prob scatter-prob
+    set charge-flow 0
+    set flow-timer 0
+  ]
+end
