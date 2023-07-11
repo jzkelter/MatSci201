@@ -1,0 +1,95 @@
+globals [
+  message1 ; this variable holds a turtle for displaying messages.
+  message2 ; this variable holds a turtle for displaying messages.
+]
+
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Setup Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;
+
+to aep.setup-messages
+  crt 1 [
+    setxy 2.5 2.5
+    set size 0
+    set message1 self
+  ]
+  crt 1 [
+    setxy 3 2.25
+    set size 0
+    set message2 self
+  ]
+end
+
+
+;; *****************************************************
+;; *********      Interaction Procedures      **********
+;; *****************************************************
+
+to aep.drag-atoms-with-mouse  
+  if mouse-down? [
+    let close-atoms atoms with [aep.distance-to-mouse < 0.5]
+    if any? close-atoms [
+      ask min-one-of close-atoms [aep.distance-to-mouse] [
+        let oldx xcor
+        let oldy ycor
+        setxy mouse-xcor mouse-ycor
+        ifelse mdc.calc-PE > 1 [ ; if energy would be too high, don't let the atom go there.
+          setxy oldx oldy
+        ] [
+          set vx 0
+          set vy 0
+        ]
+      ]
+      display
+    ]
+  ]
+end
+
+to-report aep.distance-to-mouse
+  report distancexy mouse-xcor mouse-ycor
+end
+
+
+to aep.change-atom-size [change]
+  ask atoms with [selected?] [
+    set sigma max list 0.2 (sigma + change)
+    set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
+    aep.set-size
+  ]
+end
+
+
+to aep.delete-atoms
+  if mouse-down? [
+    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
+      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
+  ]
+
+end
+
+
+to aep.select-atoms
+  if mouse-down? [
+    ask atoms with [distancexy mouse-xcor mouse-ycor < (1 / 2)] [
+      set selected? not selected?
+      aep.set-shape
+    ]
+    wait 0.1
+  ]
+end
+
+to aep.set-shape
+  ifelse selected? [
+    ;set shape "circle 2"
+    set shape "circle-s"
+  ] [
+    set shape "circle"
+  ]
+end
+
+
+to aep.set-size
+ set size 0.8
+  ;set size sigma * atom-viz-size
+end

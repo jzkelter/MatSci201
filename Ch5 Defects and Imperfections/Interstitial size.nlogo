@@ -1,4 +1,4 @@
-__includes [ "../nls-files/ch5-t3.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/visualize-bonds.nls" ]
+__includes [ "../nls-files/ch5.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
 
 breed [atoms atom]
 
@@ -30,7 +30,7 @@ to setup
   setup-interstitial
 
   ch5.setup-LJ
-  ch5.setup-messages
+  aep.setup-messages
 
   reset-ticks
 end
@@ -45,7 +45,7 @@ to setup-interstitial
     set color red
     set pinned? false
     set selected? true
-    set-size
+    aep.set-size
   ]
 end
 
@@ -72,7 +72,6 @@ to setup-atoms [x-dist y-dist]
   ]
 
   ; pin the bottom row
-
     ask atoms with-min [ycor] [
       set pinned? true
       set shape "circle-X"
@@ -91,7 +90,7 @@ end
 
 
 to interact
-  mdc.drag-atoms-with-mouse
+  aep.drag-atoms-with-mouse
 end
 
 
@@ -335,7 +334,7 @@ BUTTON
 180
 223
 increase-size
-change-atom-size .1
+aep.change-atom-size .1
 NIL
 1
 T
@@ -352,7 +351,7 @@ BUTTON
 85
 223
 decrease-size
-change-atom-size (- .1)
+aep.change-atom-size (- .1)
 NIL
 1
 T

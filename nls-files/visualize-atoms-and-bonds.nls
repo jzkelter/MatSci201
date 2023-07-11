@@ -6,15 +6,15 @@ globals [
 ;; Setup Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
-to vb.setup-links
+to vab.setup-links
   set link-check-dist 1.5
   
   ask atoms [
     let in-radius-atoms (other atoms in-radius cutoff-dist)
-    vb.update-links in-radius-atoms
+    vab.update-links in-radius-atoms
   ]
 
-  ask atom-links [vb.color-links]
+  ask atom-links [vab.color-links]
 end
 
 
@@ -22,23 +22,23 @@ end
 ;; ************* Link Display procedures ***************
 ;; *****************************************************
 
-to vb.update-links [in-radius-atoms] ; updating links
+to vab.update-links [in-radius-atoms] ; updating links
   if show-diagonal-right-links? [
     set heading 330
-    vb.link-with-atoms-in-cone in-radius-atoms
+    vab.link-with-atoms-in-cone in-radius-atoms
   ]
   if show-diagonal-left-links? [
     set heading 30
-    vb.link-with-atoms-in-cone in-radius-atoms
+    vab.link-with-atoms-in-cone in-radius-atoms
   ]
   if show-horizontal-links? [
     set heading 90
-    vb.link-with-atoms-in-cone in-radius-atoms
+    vab.link-with-atoms-in-cone in-radius-atoms
   ]
 
 end
 
-to vb.link-with-atoms-in-cone [atom-set]
+to vab.link-with-atoms-in-cone [atom-set]
   let in-cone-atoms (atom-set in-cone link-check-dist 60)
     if any? in-cone-atoms [
       create-atom-link-with min-one-of in-cone-atoms [distance myself]
@@ -46,7 +46,7 @@ to vb.link-with-atoms-in-cone [atom-set]
 end
 
 
-to vb.color-links
+to vab.color-links
   set thickness .25 ; necessary because the links die and reform every tick
   let min-eq-bond-len 1.1 * ([sigma] of end1 + [sigma] of end2) / 2
   let max-eq-bond-len 1.15 * ([sigma] of end1 + [sigma] of end2) / 2

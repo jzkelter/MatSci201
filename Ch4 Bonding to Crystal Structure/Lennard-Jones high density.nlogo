@@ -1,4 +1,4 @@
-__includes [ "../nls-files/molecular-dynamics-core.nls" ]
+__includes [ "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" ]
 
 breed [atoms atom]
 
@@ -8,6 +8,10 @@ atoms-own [
   vx     ; x-component of velocity vector
   vy     ; y-component of velocity vector
   mass   ; mass of atom
+
+  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
+  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
+  selected? ; whether the atom is selected or  not to change its size
 ]
 
 
@@ -97,7 +101,7 @@ to go
     go-mode = "simulate" [simulate]
     go-mode = "drag atoms" [
       ask links [show-link]
-      mdc.drag-atoms-with-mouse
+      aep.drag-atoms-with-mouse
       ask links [set-label-distance]
     ]
   )

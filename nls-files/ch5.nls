@@ -4,8 +4,6 @@ globals [
   prev-atom-viz-size  ; previous atom viz size
   LJ-force-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
   LJ-pot-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
-  message1 ; this variable holds a turtle for displaying messages.
-  message2 ; this variable holds a turtle for displaying messages.
 ]
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -18,7 +16,7 @@ to ch5.setup-atoms-and-links-and-force-lines
 
   setup-atoms x-dist y-dist
   
-  vb.setup-links
+  vab.setup-links
 end
 
 to ch5.setup-LJ
@@ -27,19 +25,6 @@ to ch5.setup-LJ
 
   set LJ-pot-cutoff-values map  [s -> first LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
   set LJ-force-cutoff-values map  [s -> last LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
-end
-
-to ch5.setup-messages
-  crt 1 [
-    setxy 2.5 2.5
-    set size 0
-    set message1 self
-  ]
-  crt 1 [
-    setxy 3 2.25
-    set size 0
-    set message2 self
-  ]
 end
 
 ;setup-atoms somewhere here
@@ -52,7 +37,7 @@ to ch5.init-atom
   set sigma 1
   set pinned? False
   set selected? false
-  set-size
+  aep.set-size
 end
 
 
@@ -61,7 +46,7 @@ end
 ;;*******************************************************
 
 to simulate
-  update-atom-size-viz
+  ch5.update-atom-size-viz
 
   ask atom-links [ die ]
 
@@ -72,7 +57,7 @@ to simulate
 
   control-temp
 
-  ask atom-links [vb.color-links]  ; stylizing/coloring links
+  ask atom-links [vab.color-links]  ; stylizing/coloring links
 
   tick-advance dt
   update-plots
@@ -133,7 +118,7 @@ to update-force-and-velocity-and-links
 
   update-atom-color pot-E
   
-  vb.update-links in-radius-atoms
+  vab.update-links in-radius-atoms
 end
 
 to control-temp
@@ -197,19 +182,6 @@ end
 
 
 ;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
-
-to change-atom-size [change]
-  ask atoms with [selected?] [
-    set sigma max list 0.2 (sigma + change)
-    set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
-    set-size
-  ]
-end
-
-
-;; *****************************************************
 ;; ********* Atom and Link Display procedures **********
 ;; *****************************************************
 
@@ -224,22 +196,9 @@ to update-atom-color [atom-PE] ; updating atom color
 end
 
 
-to set-shape
-  ifelse selected? [
-    ;set shape "circle 2"
-    set shape "circle-s"
-  ] [
-    set shape "circle"
-  ]
-end
-
-to update-atom-size-viz
+to ch5.update-atom-size-viz
   if atom-viz-size != prev-atom-viz-size [
-    ask atoms [set-size]
+    ask atoms [aep.set-size]
   ]
   set prev-atom-viz-size  atom-viz-size
-end
-
-to set-size
-  set size sigma * atom-viz-size
 end

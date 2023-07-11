@@ -1,4 +1,4 @@
-__includes [ "../nls-files/ch5-t3.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/visualize-bonds.nls" ]
+__includes [ "../nls-files/ch5.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
 
 breed [atoms atom]
 
@@ -27,7 +27,7 @@ to setup
   mdc.init-velocity
 
   ch5.setup-LJ
-  ch5.setup-messages
+  aep.setup-messages
 
   reset-ticks
 end
@@ -73,10 +73,10 @@ end
 
 to interact
   (ifelse
-    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse]
-    click-mode = "delete-atoms" [delete-atoms]
-    click-mode = "add-atoms" [add-atoms]
-    click-mode = "select-atoms" [select-atoms]
+    click-mode = "drag-atoms" [aep.drag-atoms-with-mouse]
+    click-mode = "delete-atoms" [aep.delete-atoms]
+    click-mode = "add-atoms" [aep.add-atoms new-atom-color new-atom-sigma]
+    click-mode = "select-atoms" [aep.select-atoms]
     )
 end
 
@@ -85,27 +85,20 @@ end
 ;; *********      Interaction Procedures      **********
 ;; *****************************************************
 
-to delete-atoms
-  if mouse-down? [
-    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
-      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
-  ]
-
-end
-
-to add-atoms
+to aep.add-atoms [ncolor nsigma]
   if mouse-down? and not any? atoms with [distancexy mouse-xcor mouse-ycor < .2] [
     let closest-atom min-one-of atoms [distancexy mouse-xcor mouse-ycor]
-    let new-atom-force last [LJ-potential-and-force (distancexy mouse-xcor mouse-ycor) sigma new-atom-sigma] of closest-atom
+    let new-atom-force last [LJ-potential-and-force (distancexy mouse-xcor mouse-ycor) sigma nsigma] of closest-atom
+    ;let new-atom-force mdc.calc-force nsigma
 
     ifelse abs new-atom-force < 30 [
 
       create-atoms 1 [
         ch5.init-atom
-        set sigma new-atom-sigma
+        set sigma nsigma
         set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
-        set-size
-        set base-color read-from-string new-atom-color
+        aep.set-size
+        set base-color read-from-string ncolor
         set color base-color
         setxy mouse-xcor mouse-ycor
       ]
@@ -117,18 +110,7 @@ to add-atoms
       wait 1
       ask message1 [set label ""]
       ask message2 [set label ""]
-
     ]
-  ]
-end
-
-to select-atoms
-  if mouse-down? [
-    ask atoms with [distancexy mouse-xcor mouse-ycor < (1 / 2)] [
-      set selected? not selected?
-      set-shape
-    ]
-    wait 0.1
   ]
 end
 
@@ -235,7 +217,7 @@ SWITCH
 78
 show-diagonal-right-links?
 show-diagonal-right-links?
-1
+0
 1
 -1000
 
@@ -246,7 +228,7 @@ SWITCH
 113
 show-diagonal-left-links?
 show-diagonal-left-links?
-1
+0
 1
 -1000
 
@@ -257,7 +239,7 @@ SWITCH
 148
 show-horizontal-links?
 show-horizontal-links?
-1
+0
 1
 -1000
 
@@ -367,7 +349,7 @@ BUTTON
 180
 263
 increase-size
-change-atom-size .1
+aep.change-atom-size .1
 NIL
 1
 T
@@ -384,7 +366,7 @@ BUTTON
 85
 263
 decrease-size
-change-atom-size (- .1)
+aep.change-atom-size (- .1)
 NIL
 1
 T
@@ -419,7 +401,7 @@ new-atom-sigma
 new-atom-sigma
 .2
 1.3
-0.2
+1.0
 .1
 1
 NIL
@@ -443,7 +425,7 @@ CHOOSER
 click-mode
 click-mode
 "drag-atoms" "delete-atoms" "add-atoms" "select-atoms"
-0
+3
 
 TEXTBOX
 0

@@ -151,32 +151,3 @@ to-report mdc.calc-pair-PE-without-offset [r]
   ;NOTE could do this a little faster by attract-term * (attract-term -1)
   report 4 * eps * (repel-term - attract-term)
 end
-
-
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
-
-to mdc.drag-atoms-with-mouse  
-  if mouse-down? [
-    let close-atoms atoms with [mdc.distance-to-mouse < 0.5]
-    if any? close-atoms [
-      ask min-one-of close-atoms [mdc.distance-to-mouse] [
-        let oldx xcor
-        let oldy ycor
-        setxy mouse-xcor mouse-ycor
-        ifelse mdc.calc-PE > 1 [ ; if energy would be too high, don't let the atom go there.
-          setxy oldx oldy
-        ] [
-          set vx 0
-          set vy 0
-        ]
-      ]
-      display
-    ]
-  ]
-end
-
-to-report mdc.distance-to-mouse
-  report distancexy mouse-xcor mouse-ycor
-end
