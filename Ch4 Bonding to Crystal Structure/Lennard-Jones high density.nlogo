@@ -1,4 +1,4 @@
-__includes [ "molecular-dynamics-core.nls" ]
+__includes [ "../nls-files/molecular-dynamics-core.nls" ]
 
 breed [atoms atom]
 

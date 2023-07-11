@@ -1,4 +1,4 @@
-__includes [ "ch5-t3.nls" "molecular-dynamics-core.nls" "visualize-bonds.nls" ]
+__includes [ "../nls-files/ch5-t3.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/visualize-bonds.nls" ]
 
 breed [atoms atom]
 
