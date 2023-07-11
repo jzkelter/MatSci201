@@ -7,6 +7,8 @@ globals [
 ;;;;;;;;;;;;;;;;;;;;;;
 
 to vb.setup-links
+  set link-check-dist 1.5
+  
   ask atoms [
     let in-radius-atoms (other atoms in-radius cutoff-dist)
     vb.update-links in-radius-atoms

@@ -16,35 +16,17 @@ globals [
 
 to mdc.setup-constants
   set dt .01
+  set kb 0.1 ; just picking a random constant for Kb that makes things work reasonably
   set r-min  2 ^ (1 / 6)
   set eps 1
   set -eps*4 -4 * eps
   set cutoff-dist 2.5 * r-min
-;  ifelse num-atoms = 3 [
-;    set cutoff-dist world-width
-;  ] [
-;    set cutoff-dist 2.5 * r-min
-;  ]
 end
 
 to mdc.setup-offsets
   set force-offset -1 * mdc.calc-force-without-offset cutoff-dist
   set PE-offset -1 * mdc.calc-pair-PE-without-offset cutoff-dist
 end
-
-;to mdc.create-link-rulers
-;  ask atoms [
-;    ask other atoms [
-;      create-link-with myself
-;    ]
-;  ]
-;;  ask links [mdc.set-label-distance]
-;end
-;
-;to mdc.set-label-distance
-;  let d [distance [end1] of myself ] of end2
-;  set label (word precision (d / r-min) 1 " r0")
-;end
 
 
 to mdc.remove-overlap
@@ -175,9 +157,7 @@ end
 ;; *********      Interaction Procedures      **********
 ;; *****************************************************
 
-to mdc.drag-atoms-with-mouse
-;  ask links [show-link]
-  
+to mdc.drag-atoms-with-mouse  
   if mouse-down? [
     let close-atoms atoms with [mdc.distance-to-mouse < 0.5]
     if any? close-atoms [
@@ -192,11 +172,9 @@ to mdc.drag-atoms-with-mouse
           set vy 0
         ]
       ]
+      display
     ]
   ]
-  
-  ;ask links [mdc.set-label-distance]
-  ;display
 end
 
 to-report mdc.distance-to-mouse

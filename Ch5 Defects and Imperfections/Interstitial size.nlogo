@@ -24,8 +24,6 @@ to setup
   clear-all
   set-default-shape turtles "circle"
   mdc.setup-constants
-  set Kb (1 / 10)
-  set link-check-dist 1.5
   ch5.setup-atoms-and-links-and-force-lines
   mdc.init-velocity
 

@@ -3,8 +3,6 @@ __includes [ "../nls-files/molecular-dynamics-core.nls" ]
 breed [atoms atom]
 
 atoms-own [
-;  ax     ; x-component of acceleration vector
-;  ay     ; y-component of acceeleration vector
   fx     ; x-component of force vector from last time step
   fy     ; y-component of force vector from last time step
   vx     ; x-component of velocity vector
@@ -21,15 +19,21 @@ to setup
   clear-all
   set-default-shape turtles "circle"
   mdc.setup-constants
-  set kb 0.1  ; just picking a random constant for Kb that makes things work reasonably
+
+  ifelse num-atoms = 3 [
+    set cutoff-dist world-width
+  ] [
+    set cutoff-dist 2.5 * r-min
+  ]
+
   mdc.setup-offsets
   setup-atoms
   mdc.init-velocity
 
-;  if num-atoms = 3 [
-;    ask atoms [set vx 0 set vy 0]
-;    mdc.create-link-rulers
-;  ]
+  if num-atoms = 3 [
+    ask atoms [set vx 0 set vy 0]
+    create-link-rulers
+  ]
 
   reset-timer
   reset-ticks
@@ -69,6 +73,20 @@ to setup-atoms
 
 end
 
+to create-link-rulers
+  ask atoms [
+    ask other atoms [
+      create-link-with myself
+    ]
+  ]
+  ask links [set-label-distance]
+end
+
+to set-label-distance
+  let d [distance [end1] of myself ] of end2
+  set label (word precision (d / r-min) 1 " r0")
+end
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Procedures ;;
@@ -77,13 +95,17 @@ end
 to go
   (ifelse
     go-mode = "simulate" [simulate]
-    go-mode = "drag atoms" [mdc.drag-atoms-with-mouse]
+    go-mode = "drag atoms" [
+      ask links [show-link]
+      mdc.drag-atoms-with-mouse
+      ask links [set-label-distance]
+    ]
   )
 end
 
 
 to simulate
-;  ask links [hide-link]
+  ask links [hide-link]
   ask atoms [mdc.move]
   ask atoms [mdc.update-force-and-velocity]
   if constant-temp? [mdc.scale-velocities]
