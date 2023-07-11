@@ -1,55 +1,164 @@
-__includes [ "molecular-dynamics-core-t2.nls" ]
+__includes [ "ch5-t3.nls" "molecular-dynamics-core.nls" "visualize-bonds.nls" ]
 
-;;;;;;;;;;;;;;;;;;;;;;
-;; Setup Procedures ;;
-;;;;;;;;;;;;;;;;;;;;;;
+breed [atoms atom]
+
+atoms-own [
+  fx     ; x-component of force vector from last time step
+  fy     ; y-component of force vector from last time step
+  vx     ; x-component of velocity vector
+  vy     ; y-component of velocity vector
+  mass   ; mass of atom
+  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
+  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
+  pot-E ; Potential energy of the atom
+  selected? ; whether the atom is selected or  not to change its size
+  base-color  ; display color for the atom when it isn't selected
+]
+
+
+;*******************************************************
+;**************** Setup Procedures *********************
+;*******************************************************
 
 to setup
   clear-all
-  set-default-shape turtles "circle"
   mdc.setup-constants
-  set kb 1  ; just picking a random constant for Kb that makes things work reasonably
-  mdc.setup-offsets
-  mdc.setup-atoms
+  set Kb (1 / 10)
+  set link-check-dist 1.5
+  ch5.setup-atoms-and-links-and-force-lines
   mdc.init-velocity
 
-;  if num-atoms = 3 [
-;    ask atoms [set vx 0 set vy 0]
-;    mdc.create-link-rulers
-;  ]
+  ch5.setup-LJ
+  ch5.setup-messages
 
-  reset-timer
   reset-ticks
 end
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;
-;; Runtime Procedures ;;
-;;;;;;;;;;;;;;;;;;;;;;;;
+to setup-atoms [x-dist y-dist]
+  create-atoms atoms-per-row * atoms-per-column [
+    ch5.init-atom
+  ]
+
+  let init-xpos (- atoms-per-row * x-dist / 2)  + 0.4  ;the x position of the first atom
+  let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom
+  let xpos init-xpos
+  let row-number 0 ; row number, starts at 0 for easy modulo division
+  ask atoms [ ; setting up the HCP structure
+    if xpos >= (atoms-per-row * x-dist / 2)  [ ; condition for starting new row
+      set row-number row-number + 1
+      set xpos init-xpos + (row-number mod 2) * x-dist / 2
+      set ypos ypos + y-dist
+    ]
+    setxy xpos ypos
+    set xpos xpos + x-dist
+  ]
+
+  ; pin the bottom row
+
+    ask atoms with-min [ycor] [
+      set pinned? true
+      set shape "circle-X"
+    ]
+end
+
+
+;*******************************************************
+;**************** Go Procedures *********************
+;*******************************************************
 
 to go
-  (ifelse
-    go-mode = "simulate" [mdc.simulate]
-    go-mode = "drag atoms" [mdc.drag-atoms-with-mouse]
-  )
+  simulate
+  interact
 end
+
+
+to interact
+  (ifelse
+    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse]
+    click-mode = "delete-atoms" [delete-atoms]
+    click-mode = "add-atoms" [add-atoms]
+    click-mode = "select-atoms" [select-atoms]
+    )
+end
+
+
+;; *****************************************************
+;; *********      Interaction Procedures      **********
+;; *****************************************************
+
+to delete-atoms
+  if mouse-down? [
+    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
+      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
+  ]
+
+end
+
+to add-atoms
+  if mouse-down? and not any? atoms with [distancexy mouse-xcor mouse-ycor < .2] [
+    let closest-atom min-one-of atoms [distancexy mouse-xcor mouse-ycor]
+    let new-atom-force last [LJ-potential-and-force (distancexy mouse-xcor mouse-ycor) sigma new-atom-sigma] of closest-atom
+
+    ifelse abs new-atom-force < 30 [
+
+      create-atoms 1 [
+        ch5.init-atom
+        set sigma new-atom-sigma
+        set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
+        set-size
+        set base-color read-from-string new-atom-color
+        set color base-color
+        setxy mouse-xcor mouse-ycor
+      ]
+      wait 0.1
+    ] [
+      ask message1 [set label "Adding that atom there will make things explode!"]
+      ask message2 [set label "(if you are very precise it is possible to add an interstitial)"]
+      display
+      wait 1
+      ask message1 [set label ""]
+      ask message2 [set label ""]
+
+    ]
+  ]
+end
+
+to select-atoms
+  if mouse-down? [
+    ask atoms with [distancexy mouse-xcor mouse-ycor < (1 / 2)] [
+      set selected? not selected?
+      set-shape
+    ]
+    wait 0.1
+  ]
+end
+
+
+;; *****************************************************
+;; ********* Atom and Link Display procedures **********
+;; *****************************************************
+
+
+; Copyright 2020 Uri Wilensky.
+; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-180
+190
 10
-468
-299
+538
+359
 -1
 -1
-40.0
+48.6
 1
-18
+10
 1
 1
 1
 0
-1
-1
+0
+0
 1
 -3
 3
@@ -62,10 +171,10 @@ ticks
 30.0
 
 BUTTON
-105
-55
-170
+0
 90
+80
+123
 NIL
 setup
 NIL
@@ -79,10 +188,10 @@ NIL
 1
 
 BUTTON
-105
-105
-172
-138
+85
+90
+170
+123
 NIL
 go
 T
@@ -97,147 +206,308 @@ NIL
 
 SLIDER
 0
-10
-172
-43
-num-atoms
-num-atoms
-0
-30
-13.0
-1
-1
-NIL
-HORIZONTAL
-
-CHOOSER
-0
-50
-95
-95
-initial-config
-initial-config
-"Solid" "Random"
-1
-
-SLIDER
-0
-155
-172
-188
+130
+175
+163
 temp
 temp
 0
-2
-0.47
+.2
+0.02
 .01
 1
 NIL
 HORIZONTAL
 
 SWITCH
-0
-195
-135
-228
-constant-temp?
-constant-temp?
+560
+150
+832
+183
+color-atoms-by-potential-energy?
+color-atoms-by-potential-energy?
 0
 1
 -1000
 
-MONITOR
-0
-235
-55
-280
-temp
-current-temp
-3
+SWITCH
+560
+45
+790
+78
+show-diagonal-right-links?
+show-diagonal-right-links?
 1
-11
+1
+-1000
 
-CHOOSER
-0
-100
-95
-145
-go-mode
-go-mode
-"drag atoms" "simulate"
+SWITCH
+560
+80
+790
+113
+show-diagonal-left-links?
+show-diagonal-left-links?
 1
+1
+-1000
+
+SWITCH
+560
+115
+790
+148
+show-horizontal-links?
+show-horizontal-links?
+1
+1
+-1000
 
 TEXTBOX
-60
-235
-170
-275
-This will match the temp slider if contant-temp? is on
+560
+195
+710
+213
+NIL
 11
 0.0
 1
 
+TEXTBOX
+560
+195
+710
+235
+Color Key\nLinks:
+12
+0.0
+1
+
+TEXTBOX
+565
+230
+740
+248
+high compression: dark red
+11
+13.0
+1
+
+TEXTBOX
+565
+245
+835
+263
+low compression: light red (+ grey tone)
+11
+18.0
+1
+
+TEXTBOX
+564
+259
+714
+277
+equilibrium: grey
+11
+5.0
+1
+
+TEXTBOX
+564
+272
+834
+300
+low tension: light yellow (+ grey tone)
+11
+0.0
+1
+
+TEXTBOX
+565
+288
+725
+306
+high tension: dark yellow
+11
+44.0
+1
+
+TEXTBOX
+560
+305
+715
+323
+Atoms:
+12
+0.0
+1
+
+TEXTBOX
+565
+320
+835
+338
+low potential energy: dark blue
+11
+103.0
+1
+
+TEXTBOX
+565
+335
+850
+363
+high potential energy: light blue (-> white)
+11
+107.0
+1
+
+BUTTON
+95
+230
+180
+263
+increase-size
+change-atom-size .1
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+0
+230
+85
+263
+decrease-size
+change-atom-size (- .1)
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+560
+10
+737
+43
+atom-viz-size
+atom-viz-size
+0
+1.1
+0.8
+.1
+1
+sigma
+HORIZONTAL
+
+SLIDER
+0
+325
+180
+358
+new-atom-sigma
+new-atom-sigma
+.2
+1.3
+0.2
+.1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+75
+275
+180
+320
+new-atom-color
+new-atom-color
+"red" "violet" "green" "orange" "blue"
+0
+
+CHOOSER
+40
+170
+145
+215
+click-mode
+click-mode
+"drag-atoms" "delete-atoms" "add-atoms" "select-atoms"
+0
+
+TEXTBOX
+0
+275
+80
+325
+settings for adding new atoms
+12
+0.0
+1
+
+TEXTBOX
+5
+215
+175
+241
+For changing selected atoms
+12
+0.0
+1
+
+SLIDER
+0
+10
+172
+43
+atoms-per-row
+atoms-per-row
+1
+5
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+0
+50
+172
+83
+atoms-per-column
+atoms-per-column
+1
+5
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+295
+330
+445
+348
+Atoms with X don't move
+11
+9.9
+1
+
 @#$#@#$#@
-## WHAT IS IT?
-
-This is a molecular dynamics (MD) model using the Lennard-Jones potential function. This function models the fact that atoms attract each other when they are a small distance apart and repel each other when they are very close together. By modeling many atoms behaving according to the Lennard-Jones potential, we can see how the bulk behavior of matter at different temperatures emerges from the interactions between discrete atoms. The details of the Lennard-Jones function are discussed in the next section.
-
-
-## HOW IT WORKS
-
-MD simulations operate according to Newton's laws. The basic steps of the model are as follows. Each tick, each atom:
-
-- Calculates the force that it feels from all other atoms using the Lennard-Jones potential
-- Calculates its acceleration based on the net force and its mass using a = F / m
-- Updates its velocity based on its acceleration
-- Updates its position based on its velocity.
-
-### The Lennard-Jones potential
-The Lennard-Jones potential tells you the potential energy of an atom, given its distance from another atom. The derivative of the Lennard-Jones potential tells yout he force an atom feels from another atom based on their distance.
-
-The potential is: V=4ϵ[(σ/r)^12−(σ/r)^6]. Where V is the intermolecular potential between two atoms or molecules, ϵ is depth of the potential well, σ is the distance at which the potential is zero (visualized as the diameter of the atoms), and r is the center-to-center distance of separation between both particles. This is an approximation; the potential function of a real atom depends on its electronic structure and will differ somewhat from the Lennard-Jones potential.
-Atoms that are very close will be strongly pushed away from one another, and atoms that are far apart will be gently attracted. Make sure to check out the THINGS TO TRY section to explore the Lennard-Jones potential more in depth.
-
-## HOW TO USE IT
-
-### Simulation initialization
-**initial-config**: select if you want the atoms to start out randomly positioned or in a hexagonally-close-packed structure.
-
-**num-atoms**: select the number of atoms to start the simulation
-
-**temp**: select the initial temperature (this will determine the average initial velocity of the atoms.
-
-### Run the simulation
-
-**constant-temp?**: turn this on if you want temperature to be held constant. This can be turned on and off during the simulation run. When it is on, you can move the **temp** slider to change the temperature.
-
-## THINGS TO NOTICE
-
-At low temperatures, the atoms will solidfy and at high temperatures they will break apart (evaporate). Also notice the the packing structure of atoms when they are in a solid and the structures that form when you cool the atoms down after evaporating compared to when they start in HCP.
-
-
-## HOW TO CITE
-
-If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
-
-For the model itself:
-
-* Kelter, J. and Wilensky, U. (2005).  NetLogo Lennard-Jones Molecular Dynamics model.  http://ccl.northwestern.edu/netlogo/models/Electrostatics.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
-
-Please cite the NetLogo software as:
-
-* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
-
-
-## COPYRIGHT AND LICENSE
-
-Copyright 2021 Jacob Kelter and Uri Wilensky.
-
-![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
-
-This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
-
-Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
 @#$#@#$#@
 default
 true
@@ -305,6 +575,41 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
+
+circle+
+false
+0
+Circle -7500403 true true 0 0 300
+Rectangle -16777216 true false 0 135 300 165
+Rectangle -16777216 true false 135 -15 165 300
+
+circle-dot
+true
+0
+Circle -7500403 true true 0 0 300
+Circle -16777216 true false 88 88 124
+
+circle-s
+false
+0
+Circle -7500403 true true 0 0 300
+Line -1 false 210 60 120 60
+Line -1 false 90 90 90 120
+Line -1 false 120 150 180 150
+Line -1 false 210 180 210 210
+Line -1 false 90 240 180 240
+Line -7500403 true 90 90 120 60
+Line -1 false 120 60 90 90
+Line -1 false 90 120 120 150
+Line -1 false 180 150 210 180
+Line -1 false 210 210 180 240
+
+circle-x
+false
+0
+Circle -7500403 true true 0 0 300
+Polygon -16777216 true false 240 30 30 240 60 270 270 60
+Polygon -16777216 true false 30 60 240 270 270 240 60 30
 
 cow
 false

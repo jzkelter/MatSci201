@@ -47,41 +47,6 @@ end
 ;end
 
 
-;to mdc.setup-atoms
-;  create-atoms num-atoms [
-;    set shape "circle"
-;    set color blue
-;    set mass 1
-;  ]
-;
-;  if initial-config = "Solid" [
-;    let l sqrt(num-atoms) ;the # of atoms in a row
-;    let x-dist r-min
-;    let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
-;    let ypos (- l * x-dist / 2) ;the y position of the first atom
-;    let xpos (- l * x-dist / 2) ;the x position of the first atom
-;    let r-num 0  ;the row number
-;    ask turtles [  ;set the atoms; positions
-;      if xpos > (l * x-dist / 2)  [  ;condition to start a new row
-;        set r-num r-num + 1
-;        set xpos (- l * x-dist / 2) + (r-num mod 2) * x-dist / 2
-;        set ypos ypos + y-dist
-;      ]
-;      setxy xpos ypos  ;if we are still in the same row
-;      set xpos xpos + x-dist
-;    ]
-;  ]
-;
-;  if initial-config = "Random" [
-;    ask atoms [
-;      setxy random-xcor random-ycor
-;    ]
-;    mdc.remove-overlap ;make sure atoms aren't overlapping
-;  ]
-;
-;end
-
-
 to mdc.remove-overlap
   ask atoms [
     while [mdc.overlapping] [
@@ -113,17 +78,6 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
-
-to mdc.simulate
-;  ask links [hide-link]
-  ask atoms [mdc.move]
-  ask atoms [mdc.update-force-and-velocity]
-;  if constant-temp? [mdc.scale-velocities]
-  
-  tick-advance dt
-  update-plots
-end
-
 
 to mdc.move  ; atom procedure
   ;; Uses velocity-verlet algorithm
@@ -198,8 +152,7 @@ end
 to-report mdc.calc-PE
   let U 0  ;; U stands for PE
 
-  ask other turtles in-radius cutoff-dist [
-
+  ask other atoms in-radius cutoff-dist [
     set U U + mdc.calc-pair-PE (distance myself)
   ]
   report U
@@ -242,8 +195,8 @@ to mdc.drag-atoms-with-mouse
     ]
   ]
   
-;  ask links [mdc.set-label-distance]
-  display
+  ;ask links [mdc.set-label-distance]
+  ;display
 end
 
 to-report mdc.distance-to-mouse

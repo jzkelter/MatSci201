@@ -1,5 +1,6 @@
+__includes [ "ch5-t3.nls" "molecular-dynamics-core.nls" "visualize-bonds.nls" ]
+
 breed [atoms atom]
-undirected-link-breed [atom-links atom-link] ; links between atoms
 
 atoms-own [
   fx     ; x-component of force vector from last time step
@@ -14,18 +15,6 @@ atoms-own [
   base-color  ; display color for the atom when it isn't selected
 ]
 
-globals [
-  eps ; used in LJ force. Well depth; measure of how strongly particles attract each other
-  cutoff-dist ; each atom is influenced by its neighbors within this distance (LJ force)
-  dt ; time step for the velocity verlet algorithm
-  Kb ; Boltzman's constnat
-  link-check-dist ; each atom links with neighbors within this distance
-  prev-atom-viz-size  ; previous atom viz size
-  LJ-force-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
-  LJ-pot-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
-  message1 ; this variable holds a turtle for displaying messages.
-  message2 ; this variable holds a turtle for displaying messages.
-]
 
 ;*******************************************************
 ;**************** Setup Procedures *********************
@@ -33,53 +22,41 @@ globals [
 
 to setup
   clear-all
-  set eps 1
-  set cutoff-dist 2.5
-  set dt .01
+  set-default-shape turtles "circle"
+  mdc.setup-constants
   set Kb (1 / 10)
   set link-check-dist 1.5
-  setup-atoms-and-links-and-force-lines
-  init-velocity
+  ch5.setup-atoms-and-links-and-force-lines
+  mdc.init-velocity
 
-  set LJ-pot-cutoff-values n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
-  set LJ-force-cutoff-values n-values 41 [0] ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
+  setup-interstitial
 
+  ch5.setup-LJ
+  ch5.setup-messages
 
-  set LJ-pot-cutoff-values map  [s -> first LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
-  set LJ-force-cutoff-values map  [s -> last LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
-
-  crt 1 [
-    setxy 2.5 2.5
-    set size 0
-    set message1 self
-  ]
-  crt 1 [
-    setxy 3 2.25
-    set size 0
-    set message2 self
-  ]
   reset-ticks
 end
 
 
-to setup-atoms-and-links-and-force-lines
-  let r-min  2 ^ (1 / 6)
-  let x-dist r-min ; the distance between atoms in the x direction
-  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
-
-  setup-atoms x-dist y-dist
-
-  ask atoms [
-    let in-radius-atoms (other atoms in-radius cutoff-dist)
-    update-links in-radius-atoms
+to setup-interstitial
+  create-atoms 1 [
+    setxy 0.3979209337249389  -0.1689467728642201
+    set sigma 0.2
+    set mass sigma ^ 2
+    set base-color red
+    set color red
+    set pinned? false
+    set selected? true
+    set-size
   ]
-
-  ask atom-links [color-links]
 end
 
+
 to setup-atoms [x-dist y-dist]
+  let atoms-per-row 5
+  let atoms-per-column 5
   create-atoms atoms-per-row * atoms-per-column [
-    init-atom
+    ch5.init-atom
   ]
 
   let init-xpos (- atoms-per-row * x-dist / 2)  + 0.4  ;the x position of the first atom
@@ -104,195 +81,19 @@ to setup-atoms [x-dist y-dist]
     ]
 end
 
-to init-atom
-  set shape "circle"
-  set base-color blue
-  set color blue
-  set mass 1
-  set sigma 1
-  set pinned? False
-  set selected? false
-  set-size
-end
-
-to init-velocity
-  ; initializes velocity for each atom based on the initial system-temp. All atoms start
-  ; with the average velocity for the temperature split randomly between the x velocity and the y velocity
-  ask atoms [
-    let v-avg sqrt (2 * temp * Kb / mass)
-    let a random-float 1  ; a random amount of the total velocity to go the x direction
-    set vx sqrt (a * v-avg ^ 2) * positive-or-negative  ; need to square v-avg to get back the
-    set vy sqrt( v-avg ^ 2 - vx ^ 2)  * positive-or-negative
-  ]
-
-end
-
-to-report positive-or-negative
-  report ifelse-value random 2 = 0 [-1] [1]
-end
-
 
 ;*******************************************************
 ;**************** Go Procedures *********************
 ;*******************************************************
+
 to go
   simulate
   interact
 end
 
 
-to simulate
-  update-atom-size-viz
-
-  ask atom-links [ die ]
-
-  ; moving happens before velocity and force update in accordance with velocity verlet
-  ask atoms with [not pinned?] [move]
-
-  ask atoms [update-force-and-velocity-and-links]
-
-  control-temp
-
-  ask atom-links [color-links]  ; stylizing/coloring links
-
-  tick-advance dt
-  update-plots
-end
-
-
 to interact
-  (ifelse
-    click-mode = "drag-atoms" [drag-atoms-with-mouse]
-    click-mode = "delete-atoms" [delete-atoms]
-    click-mode = "add-atoms" [add-atoms]
-    click-mode = "select-atoms" [select-atoms]
-    )
-end
-
-
-to-report current-temp
-  report (1 / (2 * Kb)) * mean [mass * (vx ^ 2 + vy ^ 2)] of atoms with [not pinned?]
-end
-
-
-to control-temp
-  let ctemp current-temp
-  (ifelse
-    ctemp = 0 and temp != 0 [
-      ask atoms [init-velocity]
-    ]
-    ctemp != 0 [
-      let scale-factor sqrt( temp / ctemp )  ; if "external" temperature is higher atoms will speed up and vice versa
-      ask atoms [
-        set vx vx * scale-factor
-        set vy vy * scale-factor
-      ]
-    ]
-  )
-end
-
-;; *****************************************************
-;; *********** Molecular Dynamics Procedures ***********
-;; *****************************************************
-
-to move  ; atom procedure, uses velocity-verlet algorithm
-  let new_x velocity-verlet-pos xcor vx (fx / mass)
-  let new_y velocity-verlet-pos ycor vy (fy / mass)
-
-  ifelse new_x < max-pxcor and new_x > min-pxcor [
-    set xcor new_x
-  ] [
-    ; if the atoms would have moved off the screen, we don't move and set velocity to zero
-    set vx 0
-  ]
-
-  ifelse new_y < max-pycor and new_y > min-pycor [
-    set ycor new_y
-  ] [
-    ; if the atoms would have moved off the screen, we don't move and set velocity to zero
-    set vy 0
-  ]
-end
-
-
-to update-force-and-velocity-and-links
-  let n-fx 0
-  let n-fy 0
-  let total-potential-energy 0
-  let in-radius-atoms other atoms in-radius cutoff-dist
-  ask in-radius-atoms [
-    ; each atom calculates the force it feels from its
-    ; neighboring atoms and sums these forces
-    let r distance myself
-    let indiv-pot-E-and-force (LJ-potential-and-force r sigma [sigma] of myself)
-    let force item 1 indiv-pot-E-and-force
-    set total-potential-energy total-potential-energy + item 0 indiv-pot-E-and-force
-    face myself
-    rt 180
-    set n-fx n-fx + (force * dx)
-    set n-fy n-fy + (force * dy)
-    ]
-  set pot-E total-potential-energy / 2  ; divide by 2 to not double count pot-E for each atom
-
-
-  ; updating velocity and force
-  if not pinned? [
-    set vx velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
-    set vy velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
-    set fx n-fx
-    set fy n-fy
-  ]
-
-  update-atom-color pot-E
-  update-links in-radius-atoms
-end
-
-
-;; *****************************************************
-;; ****** Lennard-Jones Potential/Force Procecres ******
-;; *****************************************************
-
-to-report LJ-potential-and-force [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
-  let sig (sigma1 + sigma2) / 2
-  let third-power (sig / r) ^ 3
-  let sixth-power third-power ^ 2
-  let twelfth-power sixth-power ^ 2
-  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) - LJ-force-cutoff sig
-  let potential (4 * eps * (twelfth-power - sixth-power)) - LJ-pot-cutoff sig
-  report list potential force
-end
-
-
-to-report calc-PE
-  let U 0  ;; U stands for PE
-
-  ask other atoms in-radius cutoff-dist [
-    set U U + calc-pair-PE-with myself
-  ]
-  report U
-end
-
-to-report calc-pair-PE-with [other-atom]
-  let PE-and-force LJ-potential-and-force (distance other-atom) sigma  [sigma] of other-atom
-  report first PE-and-force
-end
-
-
-to-report velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
-  report pos + v * dt + (1 / 2) * a * (dt ^ 2)
-end
-
-to-report velocity-verlet-velocity [v a new-a]  ; velocity, acceleration, new acceleration
-  report v + (1 / 2) * (new-a + a) * dt
-end
-
-
-to-report LJ-force-cutoff [sig]
-  report item round (sig / .05) LJ-force-cutoff-values
-end
-
-to-report LJ-pot-cutoff [sig]
-  report item round (sig / .05) LJ-pot-cutoff-values
+  mdc.drag-atoms-with-mouse
 end
 
 
@@ -300,161 +101,12 @@ end
 ;; *********      Interaction Procedures      **********
 ;; *****************************************************
 
-to drag-atoms-with-mouse
-
-  if mouse-down? [
-    let close-atoms atoms with [distance-to-mouse < 0.5]
-    if any? close-atoms [
-      ask min-one-of close-atoms [distance-to-mouse] [
-        let oldx xcor
-        let oldy ycor
-        setxy mouse-xcor mouse-ycor
-        ifelse calc-PE > 2 [ ; if energy would be too high, don't let the atom go there.
-          setxy oldx oldy
-        ] [
-          set vx 0
-          set vy 0
-        ]
-      ]
-    ]
-  ]
-end
-
-to-report distance-to-mouse
-  report distancexy mouse-xcor mouse-ycor
-end
-
-to delete-atoms
-  if mouse-down? [
-    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
-      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
-  ]
-
-end
-
-to add-atoms
-  if mouse-down? and not any? atoms with [distancexy mouse-xcor mouse-ycor < .2] [
-    let closest-atom min-one-of atoms [distancexy mouse-xcor mouse-ycor]
-    let new-atom-force last [LJ-potential-and-force (distancexy mouse-xcor mouse-ycor) sigma new-atom-sigma] of closest-atom
-
-    ifelse abs new-atom-force < 30 [
-
-      create-atoms 1 [
-        init-atom
-        set sigma new-atom-sigma
-        set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
-        set-size
-        set base-color read-from-string new-atom-color
-        set color base-color
-        setxy mouse-xcor mouse-ycor
-      ]
-      wait 0.1
-    ] [
-      ask message1 [set label "Adding that atom there will make things explode!"]
-      ask message2 [set label "(if you are very precise it is possible to add an interstitial)"]
-      display
-      wait 1
-      ask message1 [set label ""]
-      ask message2 [set label ""]
-
-    ]
-  ]
-end
-
-to select-atoms
-  if mouse-down? [
-    ask atoms with [distancexy mouse-xcor mouse-ycor < (1 / 2)] [
-      set selected? not selected?
-      set-shape
-    ]
-    wait 0.1
-  ]
-end
-
-to change-atom-size [change]
-  ask atoms with [selected?] [
-    set sigma max list 0.2 (sigma + change)
-    set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
-    set-size
-  ]
-end
-
-
 
 ;; *****************************************************
 ;; ********* Atom and Link Display procedures **********
 ;; *****************************************************
 
-to update-atom-color [atom-PE] ; updating atom color
 
-  ifelse color-atoms-by-potential-energy? [
-    set color scale-color color  atom-PE -6 0
-  ] [
-    set color base-color
-  ]
-
-end
-
-to update-links [in-radius-atoms] ; updating links
-  if show-diagonal-right-links? [
-    set heading 330
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-  if show-diagonal-left-links? [
-    set heading 30
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-  if show-horizontal-links? [
-    set heading 90
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-
-end
-
-to link-with-atoms-in-cone [atom-set]
-  let in-cone-atoms (atom-set in-cone link-check-dist 60)
-    if any? in-cone-atoms [
-      create-atom-link-with min-one-of in-cone-atoms [distance myself]
-    ]
-end
-
-
-to color-links
-  set thickness .25 ; necessary because the links die and reform every tick
-  let min-eq-bond-len 1.1 * ([sigma] of end1 + [sigma] of end2) / 2
-  let max-eq-bond-len 1.15 * ([sigma] of end1 + [sigma] of end2) / 2
-  (ifelse
-    link-length < min-eq-bond-len [
-      let tmp-len sqrt(min-eq-bond-len - link-length)
-      let tmp-color extract-rgb scale-color red tmp-len 1 (-.2)
-      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30) ]
-    link-length > max-eq-bond-len [
-      let tmp-len sqrt (link-length - max-eq-bond-len)
-      let tmp-color extract-rgb scale-color yellow tmp-len 1 -.2
-      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30)]
-    [ let tmp-color extract-rgb white
-      set color insert-item 3 tmp-color 125 ])
-end
-
-to set-shape
-  ifelse selected? [
-    ;set shape "circle 2"
-    set shape "circle-s"
-  ] [
-    set shape "circle"
-  ]
-end
-
-to update-atom-size-viz
-  if atom-viz-size != prev-atom-viz-size [
-    ask atoms [set-size]
-  ]
-  set prev-atom-viz-size  atom-viz-size
-end
-
-to set-size
-  set size sigma * atom-viz-size
-end
 
 ; Copyright 2020 Uri Wilensky.
 ; See Info tab for full copyright and license.
@@ -528,8 +180,8 @@ SLIDER
 temp
 temp
 0
-.2
-0.02
+.4
+0.05
 .01
 1
 NIL
@@ -553,7 +205,7 @@ SWITCH
 78
 show-diagonal-right-links?
 show-diagonal-right-links?
-1
+0
 1
 -1000
 
@@ -564,7 +216,7 @@ SWITCH
 113
 show-diagonal-left-links?
 show-diagonal-left-links?
-1
+0
 1
 -1000
 
@@ -575,7 +227,7 @@ SWITCH
 148
 show-horizontal-links?
 show-horizontal-links?
-1
+0
 1
 -1000
 
@@ -681,9 +333,9 @@ high potential energy: light blue (-> white)
 
 BUTTON
 95
-230
+190
 180
-263
+223
 increase-size
 change-atom-size .1
 NIL
@@ -698,9 +350,9 @@ NIL
 
 BUTTON
 0
-230
+190
 85
-263
+223
 decrease-size
 change-atom-size (- .1)
 NIL
@@ -728,90 +380,15 @@ atom-viz-size
 sigma
 HORIZONTAL
 
-SLIDER
-0
-325
-180
-358
-new-atom-sigma
-new-atom-sigma
-.2
-1.3
-0.2
-.1
-1
-NIL
-HORIZONTAL
-
-CHOOSER
-75
-275
-180
-320
-new-atom-color
-new-atom-color
-"red" "violet" "green" "orange" "blue"
-0
-
-CHOOSER
-40
+TEXTBOX
+5
 170
-145
-215
-click-mode
-click-mode
-"drag-atoms" "delete-atoms" "add-atoms" "select-atoms"
-0
-
-TEXTBOX
-0
-275
-80
-325
-settings for adding new atoms
-12
-0.0
-1
-
-TEXTBOX
-5
-215
 175
-241
-For changing selected atoms
+196
+For changing interstitial atom
 12
 0.0
 1
-
-SLIDER
-0
-10
-172
-43
-atoms-per-row
-atoms-per-row
-1
-5
-5.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-0
-50
-172
-83
-atoms-per-column
-atoms-per-column
-1
-5
-5.0
-1
-1
-NIL
-HORIZONTAL
 
 TEXTBOX
 295

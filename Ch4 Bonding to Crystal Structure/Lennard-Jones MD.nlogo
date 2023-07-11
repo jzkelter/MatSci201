@@ -1,124 +1,118 @@
-__includes [ "ch5-t2.nls" ]
+__includes [ "molecular-dynamics-core.nls" ]
+
+breed [atoms atom]
+
+atoms-own [
+;  ax     ; x-component of acceleration vector
+;  ay     ; y-component of acceeleration vector
+  fx     ; x-component of force vector from last time step
+  fy     ; y-component of force vector from last time step
+  vx     ; x-component of velocity vector
+  vy     ; y-component of velocity vector
+  mass   ; mass of atom
+]
 
 
-;*******************************************************
-;**************** Setup Procedures *********************
-;*******************************************************
+;;;;;;;;;;;;;;;;;;;;;;
+;; Setup Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;
 
 to setup
   clear-all
   set-default-shape turtles "circle"
-  set eps 1
-  set cutoff-dist 2.5
-  set dt .01
-  set Kb (1 / 10)
-  set link-check-dist 1.5
-  ch5.setup-atoms-and-links-and-force-lines
-  init-velocity
+  mdc.setup-constants
+  set kb (1 / 10)  ; just picking a random constant for Kb that makes things work reasonably
+  mdc.setup-offsets
+  setup-atoms
+  mdc.init-velocity
 
-  setup-interstitial
+;  if num-atoms = 3 [
+;    ask atoms [set vx 0 set vy 0]
+;    mdc.create-link-rulers
+;  ]
 
-  ch5.setup-LJ
-  ch5.setup-messages
-
+  reset-timer
   reset-ticks
 end
 
-
-to setup-interstitial
-  create-atoms 1 [
-    setxy 0.3979209337249389  -0.1689467728642201
-    set sigma 0.2
-    set mass sigma ^ 2
-    set base-color red
-    set color red
-    set pinned? false
-    set selected? true
-    set-size
+to setup-atoms
+  create-atoms num-atoms [
+    set shape "circle"
+    set color blue
+    set mass 1
   ]
+
+  if initial-config = "Solid" [
+    let l sqrt(num-atoms) ;the # of atoms in a row
+    let x-dist r-min
+    let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+    let ypos (- l * x-dist / 2) ;the y position of the first atom
+    let xpos (- l * x-dist / 2) ;the x position of the first atom
+    let r-num 0  ;the row number
+    ask turtles [  ;set the atoms; positions
+      if xpos > (l * x-dist / 2)  [  ;condition to start a new row
+        set r-num r-num + 1
+        set xpos (- l * x-dist / 2) + (r-num mod 2) * x-dist / 2
+        set ypos ypos + y-dist
+      ]
+      setxy xpos ypos  ;if we are still in the same row
+      set xpos xpos + x-dist
+    ]
+  ]
+
+  if initial-config = "Random" [
+    ask atoms [
+      setxy random-xcor random-ycor
+    ]
+    mdc.remove-overlap ;make sure atoms aren't overlapping
+  ]
+
 end
 
 
-to setup-atoms [x-dist y-dist]
-  let atoms-per-row 5
-  let atoms-per-column 5
-  create-atoms atoms-per-row * atoms-per-column [
-    ch5.init-atom
-  ]
-
-  let init-xpos (- atoms-per-row * x-dist / 2)  + 0.4  ;the x position of the first atom
-  let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom
-  let xpos init-xpos
-  let row-number 0 ; row number, starts at 0 for easy modulo division
-  ask atoms [ ; setting up the HCP structure
-    if xpos >= (atoms-per-row * x-dist / 2)  [ ; condition for starting new row
-      set row-number row-number + 1
-      set xpos init-xpos + (row-number mod 2) * x-dist / 2
-      set ypos ypos + y-dist
-    ]
-    setxy xpos ypos
-    set xpos xpos + x-dist
-  ]
-
-  ; pin the bottom row
-
-    ask atoms with-min [ycor] [
-      set pinned? true
-      set shape "circle-X"
-    ]
-end
-
-
-;*******************************************************
-;**************** Go Procedures *********************
-;*******************************************************
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; Runtime Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
 
 to go
-  simulate
-  interact
+  (ifelse
+    go-mode = "simulate" [simulate]
+    go-mode = "drag atoms" [mdc.drag-atoms-with-mouse]
+  )
 end
 
 
-to interact
-  drag-atoms-with-mouse
+to simulate
+;  ask links [hide-link]
+  ask atoms [mdc.move]
+  ask atoms [mdc.update-force-and-velocity]
+  if constant-temp? [mdc.scale-velocities]
+
+  tick-advance dt
+  update-plots
 end
-
-
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
-
-
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
-
-
-
-; Copyright 2020 Uri Wilensky.
-; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-190
+180
 10
-538
-359
+514
+345
 -1
 -1
-48.6
+29.69
 1
-10
+18
 1
 1
 1
 0
-0
-0
 1
--3
-3
--3
-3
+1
+1
+-5
+5
+-5
+5
 1
 1
 1
@@ -126,10 +120,10 @@ ticks
 30.0
 
 BUTTON
-0
+105
+55
+170
 90
-80
-123
 NIL
 setup
 NIL
@@ -143,10 +137,10 @@ NIL
 1
 
 BUTTON
-85
-90
-170
-123
+105
+105
+172
+138
 NIL
 go
 T
@@ -161,233 +155,147 @@ NIL
 
 SLIDER
 0
-130
-175
-163
-temp
-temp
+10
+172
+43
+num-atoms
+num-atoms
 0
-.4
-0.05
-.01
+30
+17.0
+1
 1
 NIL
 HORIZONTAL
 
-SWITCH
-560
-150
-832
-183
-color-atoms-by-potential-energy?
-color-atoms-by-potential-energy?
+CHOOSER
 0
-1
--1000
-
-SWITCH
-560
-45
-790
-78
-show-diagonal-right-links?
-show-diagonal-right-links?
-0
-1
--1000
-
-SWITCH
-560
-80
-790
-113
-show-diagonal-left-links?
-show-diagonal-left-links?
-0
-1
--1000
-
-SWITCH
-560
-115
-790
-148
-show-horizontal-links?
-show-horizontal-links?
-0
-1
--1000
-
-TEXTBOX
-560
-195
-710
-213
-NIL
-11
-0.0
-1
-
-TEXTBOX
-560
-195
-710
-235
-Color Key\nLinks:
-12
-0.0
-1
-
-TEXTBOX
-565
-230
-740
-248
-high compression: dark red
-11
-13.0
-1
-
-TEXTBOX
-565
-245
-835
-263
-low compression: light red (+ grey tone)
-11
-18.0
-1
-
-TEXTBOX
-564
-259
-714
-277
-equilibrium: grey
-11
-5.0
-1
-
-TEXTBOX
-564
-272
-834
-300
-low tension: light yellow (+ grey tone)
-11
-0.0
-1
-
-TEXTBOX
-565
-288
-725
-306
-high tension: dark yellow
-11
-44.0
-1
-
-TEXTBOX
-560
-305
-715
-323
-Atoms:
-12
-0.0
-1
-
-TEXTBOX
-565
-320
-835
-338
-low potential energy: dark blue
-11
-103.0
-1
-
-TEXTBOX
-565
-335
-850
-363
-high potential energy: light blue (-> white)
-11
-107.0
-1
-
-BUTTON
+50
 95
-190
-180
-223
-increase-size
-change-atom-size .1
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
+95
+initial-config
+initial-config
+"Solid" "Random"
 0
-190
-85
-223
-decrease-size
-change-atom-size (- .1)
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
 
 SLIDER
-560
-10
-737
-43
-atom-viz-size
-atom-viz-size
 0
-1.1
-0.8
+155
+172
+188
+temp
+temp
+0
+8
+1.0
 .1
 1
-sigma
+NIL
 HORIZONTAL
 
-TEXTBOX
-5
-170
-175
-196
-For changing interstitial atom
-12
-0.0
+SWITCH
+0
+195
+135
+228
+constant-temp?
+constant-temp?
+0
+1
+-1000
+
+MONITOR
+0
+235
+55
+280
+temp
+mdc.current-temp
+3
+1
+11
+
+CHOOSER
+0
+100
+95
+145
+go-mode
+go-mode
+"drag atoms" "simulate"
 1
 
 TEXTBOX
-295
-330
-445
-348
-Atoms with X don't move
+60
+235
+170
+275
+This will match the temp slider if contant-temp? is on
 11
-9.9
+0.0
 1
 
 @#$#@#$#@
+## WHAT IS IT?
+
+This is a molecular dynamics (MD) model using the Lennard-Jones potential function. This function models the fact that atoms attract each other when they are a small distance apart and repel each other when they are very close together. By modeling many atoms behaving according to the Lennard-Jones potential, we can see how the bulk behavior of matter at different temperatures emerges from the interactions between discrete atoms. The details of the Lennard-Jones function are discussed in the next section.
+
+
+## HOW IT WORKS
+
+MD simulations operate according to Newton's laws. The basic steps of the model are as follows. Each tick, each atom:
+
+- Calculates the force that it feels from all other atoms using the Lennard-Jones potential
+- Calculates its acceleration based on the net force and its mass using a = F / m
+- Updates its velocity based on its acceleration
+- Updates its position based on its velocity.
+
+### The Lennard-Jones potential
+The Lennard-Jones potential tells you the potential energy of an atom, given its distance from another atom. The derivative of the Lennard-Jones potential tells yout he force an atom feels from another atom based on their distance.
+
+The potential is: V=4ϵ[(σ/r)^12−(σ/r)^6]. Where V is the intermolecular potential between two atoms or molecules, ϵ is depth of the potential well, σ is the distance at which the potential is zero (visualized as the diameter of the atoms), and r is the center-to-center distance of separation between both particles. This is an approximation; the potential function of a real atom depends on its electronic structure and will differ somewhat from the Lennard-Jones potential.
+Atoms that are very close will be strongly pushed away from one another, and atoms that are far apart will be gently attracted. Make sure to check out the THINGS TO TRY section to explore the Lennard-Jones potential more in depth.
+
+## HOW TO USE IT
+
+### Simulation initialization
+**initial-config**: select if you want the atoms to start out randomly positioned or in a hexagonally-close-packed structure.
+
+**num-atoms**: select the number of atoms to start the simulation
+
+**temp**: select the initial temperature (this will determine the average initial velocity of the atoms.
+
+### Run the simulation
+
+**constant-temp?**: turn this on if you want temperature to be held constant. This can be turned on and off during the simulation run. When it is on, you can move the **temp** slider to change the temperature.
+
+## THINGS TO NOTICE
+
+At low temperatures, the atoms will solidfy and at high temperatures they will break apart (evaporate). Also notice the the packing structure of atoms when they are in a solid and the structures that form when you cool the atoms down after evaporating compared to when they start in HCP.
+
+
+## HOW TO CITE
+
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
+
+For the model itself:
+
+* Kelter, J. and Wilensky, U. (2005).  NetLogo Lennard-Jones Molecular Dynamics model.  http://ccl.northwestern.edu/netlogo/models/Electrostatics.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+Please cite the NetLogo software as:
+
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+
+## COPYRIGHT AND LICENSE
+
+Copyright 2021 Jacob Kelter and Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
 @#$#@#$#@
 default
 true
@@ -455,41 +363,6 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
-
-circle+
-false
-0
-Circle -7500403 true true 0 0 300
-Rectangle -16777216 true false 0 135 300 165
-Rectangle -16777216 true false 135 -15 165 300
-
-circle-dot
-true
-0
-Circle -7500403 true true 0 0 300
-Circle -16777216 true false 88 88 124
-
-circle-s
-false
-0
-Circle -7500403 true true 0 0 300
-Line -1 false 210 60 120 60
-Line -1 false 90 90 90 120
-Line -1 false 120 150 180 150
-Line -1 false 210 180 210 210
-Line -1 false 90 240 180 240
-Line -7500403 true 90 90 120 60
-Line -1 false 120 60 90 90
-Line -1 false 90 120 120 150
-Line -1 false 180 150 210 180
-Line -1 false 210 210 180 240
-
-circle-x
-false
-0
-Circle -7500403 true true 0 0 300
-Polygon -16777216 true false 240 30 30 240 60 270 270 60
-Polygon -16777216 true false 30 60 240 270 270 240 60 30
 
 cow
 false

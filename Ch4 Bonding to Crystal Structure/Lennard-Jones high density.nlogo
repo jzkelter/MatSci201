@@ -1,27 +1,107 @@
-__includes [ "ch5-t2.nls" ]
+__includes [ "molecular-dynamics-core.nls" ]
 
-globals [
-  x
+breed [atoms atom]
+
+atoms-own [
+;  ax     ; x-component of acceleration vector
+;  ay     ; y-component of acceeleration vector
+  fx     ; x-component of force vector from last time step
+  fy     ; y-component of force vector from last time step
+  vx     ; x-component of velocity vector
+  vy     ; y-component of velocity vector
+  mass   ; mass of atom
 ]
 
-to setup
-  set x 1
-  set b 2
 
-  let y x + b
+;;;;;;;;;;;;;;;;;;;;;;
+;; Setup Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;
+
+to setup
+  clear-all
+  set-default-shape turtles "circle"
+  mdc.setup-constants
+  set kb 0.1  ; just picking a random constant for Kb that makes things work reasonably
+  mdc.setup-offsets
+  setup-atoms
+  mdc.init-velocity
+
+;  if num-atoms = 3 [
+;    ask atoms [set vx 0 set vy 0]
+;    mdc.create-link-rulers
+;  ]
+
+  reset-timer
+  reset-ticks
 end
 
+to setup-atoms
+  create-atoms num-atoms [
+    set shape "circle"
+    set color blue
+    set mass 1
+  ]
+
+  if initial-config = "Solid" [
+    let l sqrt(num-atoms) ;the # of atoms in a row
+    let x-dist r-min
+    let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+    let ypos (- l * x-dist / 2) ;the y position of the first atom
+    let xpos (- l * x-dist / 2) ;the x position of the first atom
+    let r-num 0  ;the row number
+    ask turtles [  ;set the atoms; positions
+      if xpos > (l * x-dist / 2)  [  ;condition to start a new row
+        set r-num r-num + 1
+        set xpos (- l * x-dist / 2) + (r-num mod 2) * x-dist / 2
+        set ypos ypos + y-dist
+      ]
+      setxy xpos ypos  ;if we are still in the same row
+      set xpos xpos + x-dist
+    ]
+  ]
+
+  if initial-config = "Random" [
+    ask atoms [
+      setxy random-xcor random-ycor
+    ]
+    mdc.remove-overlap ;make sure atoms aren't overlapping
+  ]
+
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; Runtime Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
+
+to go
+  (ifelse
+    go-mode = "simulate" [simulate]
+    go-mode = "drag atoms" [mdc.drag-atoms-with-mouse]
+  )
+end
+
+
+to simulate
+;  ask links [hide-link]
+  ask atoms [mdc.move]
+  ask atoms [mdc.update-force-and-velocity]
+  if constant-temp? [mdc.scale-velocities]
+
+  tick-advance dt
+  update-plots
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
+180
 10
-647
-448
+468
+299
 -1
 -1
-13.0
+40.0
 1
-10
+18
 1
 1
 1
@@ -29,21 +109,21 @@ GRAPHICS-WINDOW
 1
 1
 1
--16
-16
--16
-16
-0
-0
+-3
+3
+-3
+3
+1
+1
 1
 ticks
 30.0
 
 BUTTON
-76
-63
-139
-96
+105
+55
+170
+90
 NIL
 setup
 NIL
@@ -56,42 +136,166 @@ NIL
 NIL
 1
 
+BUTTON
+105
+105
+172
+138
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
+
+SLIDER
+0
+10
+172
+43
+num-atoms
+num-atoms
+0
+30
+13.0
+1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+0
+50
+95
+95
+initial-config
+initial-config
+"Solid" "Random"
+1
+
+SLIDER
+0
+155
+172
+188
+temp
+temp
+0
+2
+0.47
+.01
+1
+NIL
+HORIZONTAL
+
+SWITCH
+0
+195
+135
+228
+constant-temp?
+constant-temp?
+0
+1
+-1000
+
+MONITOR
+0
+235
+55
+280
+temp
+mdc.current-temp
+3
+1
+11
+
+CHOOSER
+0
+100
+95
+145
+go-mode
+go-mode
+"drag atoms" "simulate"
+1
+
+TEXTBOX
+60
+235
+170
+275
+This will match the temp slider if contant-temp? is on
+11
+0.0
+1
+
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+This is a molecular dynamics (MD) model using the Lennard-Jones potential function. This function models the fact that atoms attract each other when they are a small distance apart and repel each other when they are very close together. By modeling many atoms behaving according to the Lennard-Jones potential, we can see how the bulk behavior of matter at different temperatures emerges from the interactions between discrete atoms. The details of the Lennard-Jones function are discussed in the next section.
+
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+MD simulations operate according to Newton's laws. The basic steps of the model are as follows. Each tick, each atom:
+
+- Calculates the force that it feels from all other atoms using the Lennard-Jones potential
+- Calculates its acceleration based on the net force and its mass using a = F / m
+- Updates its velocity based on its acceleration
+- Updates its position based on its velocity.
+
+### The Lennard-Jones potential
+The Lennard-Jones potential tells you the potential energy of an atom, given its distance from another atom. The derivative of the Lennard-Jones potential tells yout he force an atom feels from another atom based on their distance.
+
+The potential is: V=4ϵ[(σ/r)^12−(σ/r)^6]. Where V is the intermolecular potential between two atoms or molecules, ϵ is depth of the potential well, σ is the distance at which the potential is zero (visualized as the diameter of the atoms), and r is the center-to-center distance of separation between both particles. This is an approximation; the potential function of a real atom depends on its electronic structure and will differ somewhat from the Lennard-Jones potential.
+Atoms that are very close will be strongly pushed away from one another, and atoms that are far apart will be gently attracted. Make sure to check out the THINGS TO TRY section to explore the Lennard-Jones potential more in depth.
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+### Simulation initialization
+**initial-config**: select if you want the atoms to start out randomly positioned or in a hexagonally-close-packed structure.
+
+**num-atoms**: select the number of atoms to start the simulation
+
+**temp**: select the initial temperature (this will determine the average initial velocity of the atoms.
+
+### Run the simulation
+
+**constant-temp?**: turn this on if you want temperature to be held constant. This can be turned on and off during the simulation run. When it is on, you can move the **temp** slider to change the temperature.
 
 ## THINGS TO NOTICE
 
-(suggested things for the user to notice while running the model)
+At low temperatures, the atoms will solidfy and at high temperatures they will break apart (evaporate). Also notice the the packing structure of atoms when they are in a solid and the structures that form when you cool the atoms down after evaporating compared to when they start in HCP.
 
-## THINGS TO TRY
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+## HOW TO CITE
 
-## EXTENDING THE MODEL
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+For the model itself:
 
-## NETLOGO FEATURES
+* Kelter, J. and Wilensky, U. (2005).  NetLogo Lennard-Jones Molecular Dynamics model.  http://ccl.northwestern.edu/netlogo/models/Electrostatics.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+Please cite the NetLogo software as:
 
-## RELATED MODELS
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
 
-## CREDITS AND REFERENCES
+## COPYRIGHT AND LICENSE
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+Copyright 2021 Jacob Kelter and Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
 @#$#@#$#@
 default
 true
@@ -285,22 +489,6 @@ Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
 Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
 Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
 
-sheep
-false
-15
-Circle -1 true true 203 65 88
-Circle -1 true true 70 65 162
-Circle -1 true true 150 105 120
-Polygon -7500403 true false 218 120 240 165 255 165 278 120
-Circle -7500403 true false 214 72 67
-Rectangle -1 true true 164 223 179 298
-Polygon -1 true true 45 285 30 285 30 240 15 195 45 210
-Circle -1 true true 3 83 150
-Rectangle -1 true true 65 221 80 296
-Polygon -1 true true 195 285 210 285 210 240 240 210 195 210
-Polygon -7500403 true false 276 85 285 105 302 99 294 83
-Polygon -7500403 true false 219 85 210 105 193 99 201 83
-
 square
 false
 0
@@ -385,13 +573,6 @@ Line -7500403 true 40 84 269 221
 Line -7500403 true 40 216 269 79
 Line -7500403 true 84 40 221 269
 
-wolf
-false
-0
-Polygon -16777216 true false 253 133 245 131 245 133
-Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
-Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
-
 x
 false
 0
@@ -415,5 +596,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@
