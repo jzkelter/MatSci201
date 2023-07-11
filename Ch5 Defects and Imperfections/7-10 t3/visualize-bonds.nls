@@ -1,0 +1,62 @@
+globals [
+  link-check-dist ; each atom links with neighbors within this distance
+]
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Setup Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;
+
+to vb.setup-links
+  ask atoms [
+    let in-radius-atoms (other atoms in-radius cutoff-dist)
+    vb.update-links in-radius-atoms
+  ]
+
+  ask atom-links [vb.color-links]
+end
+
+
+;; *****************************************************
+;; ************* Link Display procedures ***************
+;; *****************************************************
+
+to vb.update-links [in-radius-atoms] ; updating links
+  if show-diagonal-right-links? [
+    set heading 330
+    vb.link-with-atoms-in-cone in-radius-atoms
+  ]
+  if show-diagonal-left-links? [
+    set heading 30
+    vb.link-with-atoms-in-cone in-radius-atoms
+  ]
+  if show-horizontal-links? [
+    set heading 90
+    vb.link-with-atoms-in-cone in-radius-atoms
+  ]
+
+end
+
+to vb.link-with-atoms-in-cone [atom-set]
+  let in-cone-atoms (atom-set in-cone link-check-dist 60)
+    if any? in-cone-atoms [
+      create-atom-link-with min-one-of in-cone-atoms [distance myself]
+    ]
+end
+
+
+to vb.color-links
+  set thickness .25 ; necessary because the links die and reform every tick
+  let min-eq-bond-len 1.1 * ([sigma] of end1 + [sigma] of end2) / 2
+  let max-eq-bond-len 1.15 * ([sigma] of end1 + [sigma] of end2) / 2
+  (ifelse
+    link-length < min-eq-bond-len [
+      let tmp-len sqrt(min-eq-bond-len - link-length)
+      let tmp-color extract-rgb scale-color red tmp-len 1 (-.2)
+      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30) ]
+    link-length > max-eq-bond-len [
+      let tmp-len sqrt (link-length - max-eq-bond-len)
+      let tmp-color extract-rgb scale-color yellow tmp-len 1 -.2
+      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30)]
+    [ let tmp-color extract-rgb white
+      set color insert-item 3 tmp-color 125 ])
+end
