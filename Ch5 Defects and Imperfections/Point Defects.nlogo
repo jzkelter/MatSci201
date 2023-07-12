@@ -69,6 +69,24 @@ to go
 end
 
 
+to simulate
+  ch5.update-atom-size-viz
+
+  ask atom-links [ die ]
+
+  ; moving happens before velocity and force update in accordance with velocity verlet
+  ask atoms with [not pinned?] [ch5.move]
+
+  ask atoms [ch5.update-force-and-velocity-and-links]
+
+  mdc.scale-velocities
+
+  ask atom-links [vab.color-links]  ; stylizing/coloring links
+
+  tick-advance dt
+  update-plots
+end
+
 to interact
   (ifelse
     click-mode = "drag-atoms" [aep.drag-atoms-with-mouse]
