@@ -23,8 +23,8 @@ to ch5.setup-LJ
   set LJ-pot-cutoff-values n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
   set LJ-force-cutoff-values n-values 41 [0] ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
 
-  set LJ-pot-cutoff-values map  [s -> first LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
-  set LJ-force-cutoff-values map  [s -> last LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
+  set LJ-pot-cutoff-values map  [s -> first ch5.LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
+  set LJ-force-cutoff-values map  [s -> last ch5.LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
 end
 
 ;setup-atoms somewhere here
@@ -35,7 +35,7 @@ to ch5.init-atom
   set color blue
   set mass 1
   set sigma 1
-  set pinned? False
+  set pinned? false
   set selected? false
   aep.set-size
 end
@@ -51,11 +51,11 @@ to simulate
   ask atom-links [ die ]
 
   ; moving happens before velocity and force update in accordance with velocity verlet
-  ask atoms with [not pinned?] [move]
+  ask atoms with [not pinned?] [ch5.move]
 
-  ask atoms [update-force-and-velocity-and-links]
+  ask atoms [ch5.update-force-and-velocity-and-links]
 
-  control-temp
+  mdc.scale-velocities
 
   ask atom-links [vab.color-links]  ; stylizing/coloring links
 
@@ -69,7 +69,7 @@ end
 ;; *********** Molecular Dynamics Procedures ***********
 ;; *****************************************************
 
-to move  ; atom procedure, uses velocity-verlet algorithm
+to ch5.move  ; atom procedure, uses velocity-verlet algorithm
   let new_x mdc.velocity-verlet-pos xcor vx (fx / mass)
   let new_y mdc.velocity-verlet-pos ycor vy (fy / mass)
 
@@ -88,7 +88,7 @@ to move  ; atom procedure, uses velocity-verlet algorithm
   ]
 end
 
-to update-force-and-velocity-and-links
+to ch5.update-force-and-velocity-and-links
   let n-fx 0
   let n-fy 0
   let total-potential-energy 0
@@ -97,7 +97,7 @@ to update-force-and-velocity-and-links
     ; each atom calculates the force it feels from its
     ; neighboring atoms and sums these forces
     let r distance myself
-    let indiv-pot-E-and-force (LJ-potential-and-force r sigma [sigma] of myself)
+    let indiv-pot-E-and-force (ch5.LJ-potential-and-force r sigma [sigma] of myself)
     let force last indiv-pot-E-and-force
     set total-potential-energy total-potential-energy + first indiv-pot-E-and-force
     face myself
@@ -116,29 +116,9 @@ to update-force-and-velocity-and-links
     set fy n-fy
   ]
 
-  update-atom-color pot-E
+  ch5.update-atom-color pot-E
   
   vab.update-links in-radius-atoms
-end
-
-to control-temp
-  let ctemp current-temp
-  (ifelse
-    ctemp = 0 and temp != 0 [
-      ask atoms [mdc.init-velocity]
-    ]
-    ctemp != 0 [
-      let scale-factor sqrt( temp / ctemp )  ; if "external" temperature is higher atoms will speed up and vice versa
-      ask atoms [
-        set vx vx * scale-factor
-        set vy vy * scale-factor
-      ]
-    ]
-  )
-end
-
-to-report current-temp
-  report (1 / (2 * Kb)) * mean [mass * (vx ^ 2 + vy ^ 2)] of atoms with [not pinned?]
 end
 
 
@@ -146,37 +126,37 @@ end
 ;; ****** Lennard-Jones Potential/Force Procedures *****
 ;; *****************************************************
 
-to-report LJ-potential-and-force [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
+to-report ch5.LJ-potential-and-force [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
   let sig (sigma1 + sigma2) / 2
   let third-power (sig / r) ^ 3
   let sixth-power third-power ^ 2
   let twelfth-power sixth-power ^ 2
-  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) - LJ-force-cutoff sig
-  let potential (4 * eps * (twelfth-power - sixth-power)) - LJ-pot-cutoff sig
+  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) - ch5.LJ-force-cutoff sig
+  let potential (4 * eps * (twelfth-power - sixth-power)) - ch5.LJ-pot-cutoff sig
   report list potential force
 end
 
 
-to-report calc-PE
+to-report ch5.calc-PE
   let U 0  ;; U stands for PE
 
   ask other atoms in-radius cutoff-dist [
-    set U U + calc-pair-PE-with myself
+    set U U + ch5.calc-pair-PE-with myself
   ]
   report U
 end
 
-to-report calc-pair-PE-with [other-atom]
-  let PE-and-force LJ-potential-and-force (distance other-atom) sigma  [sigma] of other-atom
+to-report ch5.calc-pair-PE-with [other-atom]
+  let PE-and-force ch5.LJ-potential-and-force (distance other-atom) sigma  [sigma] of other-atom
   report first PE-and-force
 end
 
 
-to-report LJ-force-cutoff [sig]
+to-report ch5.LJ-force-cutoff [sig]
   report item round (sig / .05) LJ-force-cutoff-values
 end
 
-to-report LJ-pot-cutoff [sig]
+to-report ch5.LJ-pot-cutoff [sig]
   report item round (sig / .05) LJ-pot-cutoff-values
 end
 
@@ -185,7 +165,7 @@ end
 ;; ********* Atom and Link Display procedures **********
 ;; *****************************************************
 
-to update-atom-color [atom-PE] ; updating atom color
+to ch5.update-atom-color [atom-PE] ; updating atom color
 
   ifelse color-atoms-by-potential-energy? [
     set color scale-color color  atom-PE -6 0

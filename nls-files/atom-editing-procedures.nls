@@ -34,6 +34,7 @@ to aep.drag-atoms-with-mouse
         let oldx xcor
         let oldy ycor
         setxy mouse-xcor mouse-ycor
+        ; this is set for mdc. for now, this is affected by the duplicate LJ
         ifelse mdc.calc-PE > 1 [ ; if energy would be too high, don't let the atom go there.
           setxy oldx oldy
         ] [
@@ -90,6 +91,6 @@ end
 
 
 to aep.set-size
- set size 0.8
-  ;set size sigma * atom-viz-size
+  ;set size 0.8
+  set size sigma * atom-viz-size
 end

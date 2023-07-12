@@ -48,6 +48,7 @@ to setup-atoms
     set shape "circle"
     set color blue
     set mass 1
+    set pinned? false
   ]
 
   if initial-config = "Solid" [

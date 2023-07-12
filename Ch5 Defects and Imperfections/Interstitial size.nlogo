@@ -53,9 +53,7 @@ end
 to setup-atoms [x-dist y-dist]
   let atoms-per-row 5
   let atoms-per-column 5
-  create-atoms atoms-per-row * atoms-per-column [
-    ch5.init-atom
-  ]
+  create-atoms atoms-per-row * atoms-per-column [ch5.init-atom]
 
   let init-xpos (- atoms-per-row * x-dist / 2)  + 0.4  ;the x position of the first atom
   let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom

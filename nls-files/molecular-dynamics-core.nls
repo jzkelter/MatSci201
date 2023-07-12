@@ -102,7 +102,7 @@ to mdc.scale-velocities
 end
 
 to-report mdc.current-temp
-  report (1 / (2 * Kb)) * mean [vx ^ 2 + vy ^ 2] of atoms
+  report (1 / (2 * Kb)) * mean [vx ^ 2 + vy ^ 2] of atoms with [not pinned?]
 end
 
 

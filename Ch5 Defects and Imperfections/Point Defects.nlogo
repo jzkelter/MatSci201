@@ -34,9 +34,7 @@ end
 
 
 to setup-atoms [x-dist y-dist]
-  create-atoms atoms-per-row * atoms-per-column [
-    ch5.init-atom
-  ]
+  create-atoms atoms-per-row * atoms-per-column [ch5.init-atom]
 
   let init-xpos (- atoms-per-row * x-dist / 2)  + 0.4  ;the x position of the first atom
   let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom
@@ -88,7 +86,7 @@ end
 to aep.add-atoms [ncolor nsigma]
   if mouse-down? and not any? atoms with [distancexy mouse-xcor mouse-ycor < .2] [
     let closest-atom min-one-of atoms [distancexy mouse-xcor mouse-ycor]
-    let new-atom-force last [LJ-potential-and-force (distancexy mouse-xcor mouse-ycor) sigma nsigma] of closest-atom
+    let new-atom-force last [ch5.LJ-potential-and-force (distancexy mouse-xcor mouse-ycor) sigma nsigma] of closest-atom
     ;let new-atom-force mdc.calc-force nsigma
 
     ifelse abs new-atom-force < 30 [
@@ -386,7 +384,7 @@ atom-viz-size
 atom-viz-size
 0
 1.1
-0.8
+0.9
 .1
 1
 sigma
