@@ -28,6 +28,13 @@ to mdc.setup-offsets
   set PE-offset -1 * mdc.calc-pair-PE-without-offset cutoff-dist
 end
 
+to mdc.init-atom
+  set shape "circle"
+  set color blue
+  set mass 1
+  set sigma 1
+  set pinned? false
+end
 
 to mdc.remove-overlap
   ask atoms [

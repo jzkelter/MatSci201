@@ -30,14 +30,14 @@ end
 ;setup-atoms somewhere here
 
 to ch5.init-atom
-  set shape "circle"
-  set base-color blue
-  set color blue
-  set mass 1
-  set sigma 1
-  set pinned? false
+  mdc.init-atom
+  
+  ; these two lines are for aep, the first is an init, the second is to update the display
   set selected? false
   aep.set-size
+  
+  ; this is for atom display
+  set base-color blue
 end
 
 

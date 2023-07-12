@@ -95,6 +95,5 @@ end
 
 
 to aep.set-size
-  ;set size 0.8
   set size sigma * atom-viz-size
 end

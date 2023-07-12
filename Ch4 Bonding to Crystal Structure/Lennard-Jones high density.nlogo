@@ -45,10 +45,7 @@ end
 
 to setup-atoms
   create-atoms num-atoms [
-    set shape "circle"
-    set color blue
-    set mass 1
-    set pinned? false
+    mdc.init-atom
   ]
 
   if initial-config = "Solid" [
@@ -77,6 +74,7 @@ to setup-atoms
   ]
 
 end
+
 
 to create-link-rulers
   ask atoms [
@@ -250,7 +248,7 @@ CHOOSER
 go-mode
 go-mode
 "drag atoms" "simulate"
-0
+1
 
 TEXTBOX
 60
