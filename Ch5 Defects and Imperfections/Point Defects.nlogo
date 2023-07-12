@@ -89,7 +89,7 @@ end
 
 to interact
   (ifelse
-    click-mode = "drag-atoms" [aep.drag-atoms-with-mouse]
+    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse]
     click-mode = "delete-atoms" [aep.delete-atoms]
     click-mode = "add-atoms" [aep.add-atoms new-atom-color new-atom-sigma]
     click-mode = "select-atoms" [aep.select-atoms]
@@ -101,34 +101,7 @@ end
 ;; *********      Interaction Procedures      **********
 ;; *****************************************************
 
-to aep.add-atoms [ncolor nsigma]
-  if mouse-down? and not any? atoms with [distancexy mouse-xcor mouse-ycor < .2] [
-    let closest-atom min-one-of atoms [distancexy mouse-xcor mouse-ycor]
-    let new-atom-force last [ch5.LJ-potential-and-force (distancexy mouse-xcor mouse-ycor) sigma nsigma] of closest-atom
-    ;let new-atom-force mdc.calc-force nsigma
 
-    ifelse abs new-atom-force < 30 [
-
-      create-atoms 1 [
-        ch5.init-atom
-        set sigma nsigma
-        set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
-        aep.set-size
-        set base-color read-from-string ncolor
-        set color base-color
-        setxy mouse-xcor mouse-ycor
-      ]
-      wait 0.1
-    ] [
-      ask message1 [set label "Adding that atom there will make things explode!"]
-      ask message2 [set label "(if you are very precise it is possible to add an interstitial)"]
-      display
-      wait 1
-      ask message1 [set label ""]
-      ask message2 [set label ""]
-    ]
-  ]
-end
 
 
 ;; *****************************************************

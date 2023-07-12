@@ -26,37 +26,32 @@ end
 ;; *********      Interaction Procedures      **********
 ;; *****************************************************
 
-to aep.drag-atoms-with-mouse  
-  if mouse-down? [
-    let close-atoms atoms with [aep.distance-to-mouse < 0.5]
-    if any? close-atoms [
-      ask min-one-of close-atoms [aep.distance-to-mouse] [
-        let oldx xcor
-        let oldy ycor
+; ncolor & nsigma taken as input arguments, they are interface elements in Point Defects
+to aep.add-atoms [ncolor nsigma]
+  if mouse-down? and not any? atoms with [distancexy mouse-xcor mouse-ycor < .2] [
+    let closest-atom min-one-of atoms [distancexy mouse-xcor mouse-ycor]
+    let new-atom-force last [ch5.LJ-potential-and-force (distancexy mouse-xcor mouse-ycor) sigma nsigma] of closest-atom
+
+    ifelse abs new-atom-force < 30 [
+
+      create-atoms 1 [
+        ch5.init-atom
+        set sigma nsigma
+        set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
+        aep.set-size
+        set base-color read-from-string ncolor
+        set color base-color
         setxy mouse-xcor mouse-ycor
-        ; this is set for mdc. for now, this is affected by the duplicate LJ
-        ifelse mdc.calc-PE > 1 [ ; if energy would be too high, don't let the atom go there.
-          setxy oldx oldy
-        ] [
-          set vx 0
-          set vy 0
-        ]
       ]
+      wait 0.1
+    ] [
+      ask message1 [set label "Adding that atom there will make things explode!"]
+      ask message2 [set label "(if you are very precise it is possible to add an interstitial)"]
       display
+      wait 1
+      ask message1 [set label ""]
+      ask message2 [set label ""]
     ]
-  ]
-end
-
-to-report aep.distance-to-mouse
-  report distancexy mouse-xcor mouse-ycor
-end
-
-
-to aep.change-atom-size [change]
-  ask atoms with [selected?] [
-    set sigma max list 0.2 (sigma + change)
-    set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
-    aep.set-size
   ]
 end
 
@@ -86,6 +81,15 @@ to aep.set-shape
     set shape "circle-s"
   ] [
     set shape "circle"
+  ]
+end
+
+
+to aep.change-atom-size [change]
+  ask atoms with [selected?] [
+    set sigma max list 0.2 (sigma + change)
+    set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
+    aep.set-size
   ]
 end
 

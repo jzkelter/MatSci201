@@ -1,4 +1,4 @@
-__includes [ "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls"]
+__includes [ "../nls-files/molecular-dynamics-core.nls" ]
 
 breed [atoms atom]
 
@@ -102,7 +102,7 @@ to go
     go-mode = "simulate" [simulate]
     go-mode = "drag atoms" [
       ask links [show-link]
-      aep.drag-atoms-with-mouse
+      mdc.drag-atoms-with-mouse
       ask links [set-label-distance]
     ]
   )
@@ -250,7 +250,7 @@ CHOOSER
 go-mode
 go-mode
 "drag atoms" "simulate"
-1
+0
 
 TEXTBOX
 60

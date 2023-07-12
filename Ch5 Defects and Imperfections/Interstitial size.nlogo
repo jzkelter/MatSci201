@@ -106,7 +106,7 @@ to simulate
 end
 
 to interact
-  aep.drag-atoms-with-mouse
+  mdc.drag-atoms-with-mouse
 end
 
 
