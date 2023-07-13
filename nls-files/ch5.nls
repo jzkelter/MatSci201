@@ -55,12 +55,13 @@ to ch5.update-force-and-velocity-and-links
     ; neighboring atoms and sums these forces
     let r distance myself
     let indiv-pot-E-and-force (ch5.LJ-potential-and-force r sigma [sigma] of myself)
-    let force last indiv-pot-E-and-force
-    set total-potential-energy total-potential-energy + first indiv-pot-E-and-force
+    let force last indiv-pot-E-and-force    
     face myself
     rt 180
     set n-fx n-fx + (force * dx)
     set n-fy n-fy + (force * dy)
+    
+    set total-potential-energy total-potential-energy + first indiv-pot-E-and-force
     ]
   
   set pot-E total-potential-energy / 2  ; divide by 2 to not double count pot-E for each atom

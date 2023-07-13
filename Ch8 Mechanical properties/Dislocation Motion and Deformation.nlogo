@@ -38,7 +38,6 @@ globals [
   num-forced-atoms ; number of atoms receiving external force directly
   unpinned-atoms ; atoms that are not pinned
   equalizing-LJ-force ; force to counteract LJ forces in the x-direction (tension)
-  cross-section
 ]
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -49,17 +48,13 @@ to setup
   clear-all
   set eps .07
   set sigma .899 ; starts stress-strain curve at about 0
-  set cutoff-dist 2.5
+  set cutoff-dist 5
   set dt .1
   set sqrt-2-kb-over-m (1 / 50)
   set link-check-dist 1.5
   setup-atoms-and-links-and-force-lines
   init-velocity
   update-lattice-view
-
-  let avg-max mean [ycor] of top-neck-atoms
-  let avg-min mean [ycor] of bottom-neck-atoms
-  set cross-section avg-max - avg-min
   reset-ticks
 end
 
@@ -356,9 +351,8 @@ end
 
 
 to adjust-force
-
-  if precision prev-length 6 = precision (right-edge - left-fl) 6 [
-    set f-app precision (f-app + .0001) 4
+  if precision prev-length 6 >= precision (right-edge - left-fl) 6 [
+    set f-app precision (f-app + .0005) 3
   ]
   ; increments f-app-auto if the sample has reached an equilibrium or if the
   ; previous sample length is greater than the current sample length
@@ -366,17 +360,18 @@ to adjust-force
 end
 
 to update-force-and-velocity-and-links
+  let total-potential-energy 0
+
   let new-fx 0
   let new-fy 0
-  let total-potential-energy 0
   let in-radius-atoms other atoms in-radius cutoff-dist
   ask in-radius-atoms [
     ; each atom calculates the force it feels from its
     ; neighboring atoms and sums these forces
     let r distance myself
     let indiv-PE-and-force (LJ-potential-and-force r)
-    let force item 1 indiv-PE-and-force
-    set total-potential-energy total-potential-energy + item 0 indiv-PE-and-force
+    let force last indiv-PE-and-force
+    set total-potential-energy total-potential-energy + first indiv-PE-and-force
     face myself
     rt 180
     set new-fx new-fx + (force * dx)
@@ -393,8 +388,7 @@ to update-force-and-velocity-and-links
         set new-fx 0
         set new-fy 0
       ]
-      set ex-force report-new-force
-    ]
+      set ex-force report-new-force ]
     if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
     set new-fx ex-force + new-fx
 
@@ -453,8 +447,8 @@ to-report LJ-potential-and-force [ r ] ; for the force, positive = attractive, n
   let third-power (sigma / r) ^ 3
   let sixth-power third-power ^ 2
   let twelfth-power sixth-power ^ 2
-  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) + 5.763534948810024E-5
-  let potential (4 * eps * (twelfth-power - sixth-power)) + -1.3772201873391704E-4
+  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) + .0001
+  let potential (4 * eps * (twelfth-power - sixth-power)) + .00001
   report list potential force
 end
 
@@ -475,8 +469,10 @@ to-report strain ; tension only
 end
 
 to-report stress ; tension only
-
-  report (-1 * ((-1 * f-app) + equalizing-LJ-force) / cross-section)
+  let avg-max mean [ycor] of top-neck-atoms
+  let avg-min mean [ycor] of bottom-neck-atoms
+  let min-A avg-max - avg-min
+  report (-1 * ((-1 * f-app) + equalizing-LJ-force) / min-A)
 end
 
 to-report report-indiv-ex-force
@@ -569,6 +565,16 @@ NIL
 NIL
 0
 
+CHOOSER
+35
+10
+173
+55
+force-mode
+force-mode
+"Shear" "Tension" "Compression"
+1
+
 SLIDER
 14
 341
@@ -593,7 +599,7 @@ f-app
 f-app
 0
 30
-0.0022
+5.201
 .1
 1
 N
@@ -673,7 +679,7 @@ atoms-per-row
 atoms-per-row
 5
 20
-11.0
+18.0
 1
 1
 NIL
@@ -688,7 +694,7 @@ atoms-per-column
 atoms-per-column
 5
 20
-9.0
+13.0
 1
 1
 NIL
@@ -714,10 +720,10 @@ Stress-Strain Curve - Tension
 strain
 stress
 0.0
-0.1
+0.05
 0.0
-0.35
-false
+0.1
+true
 false
 "" ""
 PENS
@@ -902,17 +908,6 @@ NIL
 NIL
 NIL
 0
-
-MONITOR
-45
-440
-160
-485
-NIL
-f-app
-17
-1
-11
 
 @#$#@#$#@
 ## WHAT IS IT?

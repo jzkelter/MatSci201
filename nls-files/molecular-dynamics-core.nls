@@ -125,10 +125,13 @@ to mdc.update-force-and-velocity  ; atom procedure
     set n-fx n-fx + (force * dx)  ; assuming mass = 1. If not, neeed to divide force by mass to get acceleration
     set n-fy n-fy + (force * dy)
   ]
-  set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
-  set vy mdc.velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
-  set fx n-fx
-  set fy n-fy
+  
+  if not pinned? [
+    set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
+    set vy mdc.velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
+    set fx n-fx
+    set fy n-fy
+  ]
 
 end
 
@@ -194,8 +197,14 @@ end
 to-report mdc.calc-force-without-offset [r]  
   let r^3 r * r * r
   let r^6 r^3 * r^3
-  ;report (-eps*4 / (r^6 * r)) * ((1 / r^6) - 1)
   report (-eps*4 * 6 / (r^6 * r)) * ((2 / r^6) - 1)
+end
+
+to-report mdc.calc-force-without-offset-mod [r]  
+  let third-power (sigma / r) ^ 3
+  let sixth-power third-power ^ 2
+  let twelfth-power sixth-power ^ 2
+  report (-eps*4 * 12 / r) * (twelfth-power - (1 / 2) * sixth-power)
 end
 
 
