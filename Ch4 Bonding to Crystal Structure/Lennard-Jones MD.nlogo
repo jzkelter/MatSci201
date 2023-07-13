@@ -109,7 +109,7 @@ end
 
 to simulate
   ask links [hide-link]
-  ask atoms [mdc.move]
+  mdc.move-atoms
   ask atoms [mdc.update-force-and-velocity]
   if constant-temp? [mdc.scale-velocities]
 

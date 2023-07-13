@@ -51,25 +51,6 @@ end
 ;; *********** Molecular Dynamics Procedures ***********
 ;; *****************************************************
 
-to ch5.move  ; atom procedure, uses velocity-verlet algorithm
-  let new_x mdc.velocity-verlet-pos xcor vx (fx / mass)
-  let new_y mdc.velocity-verlet-pos ycor vy (fy / mass)
-
-  ifelse new_x < max-pxcor and new_x > min-pxcor [
-    set xcor new_x
-  ] [
-    ; if the atoms would have moved off the screen, we don't move and set velocity to zero
-    set vx 0
-  ]
-
-  ifelse new_y < max-pycor and new_y > min-pycor [
-    set ycor new_y
-  ] [
-    ; if the atoms would have moved off the screen, we don't move and set velocity to zero
-    set vy 0
-  ]
-end
-
 to ch5.update-force-and-velocity-and-links
   let n-fx 0
   let n-fy 0

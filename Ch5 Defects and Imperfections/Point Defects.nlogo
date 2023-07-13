@@ -75,7 +75,7 @@ to simulate
   ask atom-links [ die ]
 
   ; moving happens before velocity and force update in accordance with velocity verlet
-  ask atoms with [not pinned?] [ch5.move]
+  mdc.move-atoms
 
   ask atoms [ch5.update-force-and-velocity-and-links]
 

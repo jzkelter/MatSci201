@@ -68,11 +68,51 @@ end
 ;; Runtime Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-to mdc.move  ; atom procedure
+to mdc.move-atoms
+  ifelse mdc.world-wraps-both? [
+    ask atoms with [not pinned?] [mdc.move-wraps-on]
+  ]
+  [ ask atoms with [not pinned?] [mdc.move-wraps-off] ]
+end
+
+to-report mdc.world-wraps-both?
+    report [count neighbors4] of patch max-pxcor max-pycor = 4
+end
+
+to-report mdc.world-wraps-x?
+  report [count neighbors4 with [pxcor = min-pxcor]] of patch max-pxcor 0 = 1
+end
+
+to-report mdc.world-wraps-y?
+  report [count neighbors4 with [pycor = min-pycor]] of patch 0 max-pycor = 1
+end
+
+to mdc.move-wraps-on  ; atom procedure
   ;; Uses velocity-verlet algorithm
   set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
   set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
 end
+
+to mdc.move-wraps-off
+  ;; Uses velocity-verlet algorithm
+  let new_x mdc.velocity-verlet-pos xcor vx (fx / mass)
+  let new_y mdc.velocity-verlet-pos ycor vy (fy / mass)
+
+  ifelse new_x < max-pxcor and new_x > min-pxcor [
+    set xcor new_x
+  ] [
+    ; if the atoms would have moved off the screen, we don't move and set velocity to zero
+    set vx 0
+  ]
+
+  ifelse new_y < max-pycor and new_y > min-pycor [
+    set ycor new_y
+  ] [
+    ; if the atoms would have moved off the screen, we don't move and set velocity to zero
+    set vy 0
+  ]
+end
+
 
 to mdc.update-force-and-velocity  ; atom procedure
   let n-fx 0
