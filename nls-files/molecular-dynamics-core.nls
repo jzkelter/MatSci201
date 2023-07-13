@@ -41,7 +41,7 @@ to mdc.setup-atoms-nrc [natoms-row natoms-column]
   let x-dist r-min ; the distance between atoms in the x direction
   let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
 
-  create-atoms natoms-row * natoms-column [ch5.init-atom]
+  create-atoms natoms-row * natoms-column [mdc.init-atom]
 
   let init-xpos (- natoms-row * x-dist / 2)  + 0.4  ;the x position of the first atom
   let ypos (- natoms-column * y-dist / 2) ;the y position of the first atom
@@ -131,15 +131,15 @@ to mdc.move-atoms
 end
 
 to-report mdc.world-wraps-both?
-    report [count neighbors4] of patch max-pxcor max-pycor = 4
+    report [count neighbors4 = 4] of patch max-pxcor max-pycor
 end
 
 to-report mdc.world-wraps-x?
-  report [count neighbors4 with [pxcor = min-pxcor]] of patch max-pxcor 0 = 1
+  report [count neighbors4 with [pxcor = min-pxcor] = 1] of patch max-pxcor 0
 end
 
 to-report mdc.world-wraps-y?
-  report [count neighbors4 with [pycor = min-pycor]] of patch 0 max-pycor = 1
+  report [count neighbors4 with [pycor = min-pycor] = 1] of patch 0 max-pycor
 end
 
 to mdc.move-wraps-on  ; atom procedure

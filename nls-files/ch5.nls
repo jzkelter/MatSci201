@@ -25,18 +25,10 @@ to ch5.setup-LJ
   set LJ-force-cutoff-values map  [s -> last ch5.LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
 end
 
-;setup-atoms somewhere here
-
-to ch5.init-atom
-  mdc.init-atom
-  aep.init-atom
-end
-
 
 ;;*******************************************************
 ;;**************** Go Procedures ************************
 ;;*******************************************************
-
 
 
 ;; *****************************************************
