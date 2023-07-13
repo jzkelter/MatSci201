@@ -8,6 +8,12 @@ globals [
 ;; Setup Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
+to aep.init-atom
+  set selected? false
+  aep.set-size
+  set base-color blue
+end
+
 to aep.setup-messages
   crt 1 [
     setxy 2.5 2.5
@@ -19,6 +25,17 @@ to aep.setup-messages
     set size 0
     set message2 self
   ]
+end
+
+;;*******************************************************
+;;**************** Go Procedures ************************
+;;*******************************************************
+
+to aep.update-atom-size-viz
+  if atom-viz-size != prev-atom-viz-size [
+    ask atoms [aep.set-size]
+  ]
+  set prev-atom-viz-size  atom-viz-size
 end
 
 

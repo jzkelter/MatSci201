@@ -88,7 +88,7 @@ end
 
 
 to simulate
-  ch5.update-atom-size-viz
+  aep.update-atom-size-viz
 
   ask atom-links [ die ]
 

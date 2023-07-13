@@ -1,7 +1,6 @@
-undirected-link-breed [atom-links atom-link] ; links between atoms
-
 globals [
   prev-atom-viz-size  ; previous atom viz size
+  
   LJ-force-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
   LJ-pot-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
 ]
@@ -31,13 +30,7 @@ end
 
 to ch5.init-atom
   mdc.init-atom
-  
-  ; these two lines are for aep, the first is an init, the second is to update the display
-  set selected? false
-  aep.set-size
-  
-  ; this is for atom display
-  set base-color blue
+  aep.init-atom
 end
 
 
@@ -52,9 +45,10 @@ end
 ;; *****************************************************
 
 to ch5.update-force-and-velocity-and-links
+  let total-potential-energy 0
+  
   let n-fx 0
   let n-fy 0
-  let total-potential-energy 0
   let in-radius-atoms other atoms in-radius cutoff-dist
   ask in-radius-atoms [
     ; each atom calculates the force it feels from its
@@ -68,6 +62,7 @@ to ch5.update-force-and-velocity-and-links
     set n-fx n-fx + (force * dx)
     set n-fy n-fy + (force * dy)
     ]
+  
   set pot-E total-potential-energy / 2  ; divide by 2 to not double count pot-E for each atom
 
 
@@ -78,9 +73,9 @@ to ch5.update-force-and-velocity-and-links
     set fx n-fx
     set fy n-fy
   ]
-
-  ch5.update-atom-color pot-E
   
+  ; these two could be one procedure, "update-atom-color-and-links"
+  vab.update-atom-color pot-E
   vab.update-links in-radius-atoms
 end
 
@@ -128,20 +123,3 @@ end
 ;; ********* Atom and Link Display procedures **********
 ;; *****************************************************
 
-to ch5.update-atom-color [atom-PE] ; updating atom color
-
-  ifelse color-atoms-by-potential-energy? [
-    set color scale-color color  atom-PE -6 0
-  ] [
-    set color base-color
-  ]
-
-end
-
-
-to ch5.update-atom-size-viz
-  if atom-viz-size != prev-atom-viz-size [
-    ask atoms [aep.set-size]
-  ]
-  set prev-atom-viz-size  atom-viz-size
-end
