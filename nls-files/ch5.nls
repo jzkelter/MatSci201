@@ -9,14 +9,13 @@ globals [
 ;; Setup Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
-to ch5.setup-atoms-and-links-and-force-lines
-  let x-dist r-min ; the distance between atoms in the x direction
-  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
-
-  setup-atoms x-dist y-dist
-  
-  vab.setup-links
+to ch5.pin-bottom-row
+  ask atoms with-min [ycor] [
+      set pinned? true
+      set shape "circle-X"
+    ]
 end
+
 
 to ch5.setup-LJ
   set LJ-pot-cutoff-values n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line

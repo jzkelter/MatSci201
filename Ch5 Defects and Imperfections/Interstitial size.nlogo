@@ -24,7 +24,11 @@ to setup
   clear-all
   set-default-shape turtles "circle"
   mdc.setup-constants
-  ch5.setup-atoms-and-links-and-force-lines
+
+  mdc.setup-atoms-nrc 5 5
+  ch5.pin-bottom-row
+  vab.setup-links
+
   mdc.init-velocity
 
   setup-interstitial
@@ -47,33 +51,6 @@ to setup-interstitial
     set selected? true
     aep.set-size
   ]
-end
-
-
-to setup-atoms [x-dist y-dist]
-  let atoms-per-row 5
-  let atoms-per-column 5
-  create-atoms atoms-per-row * atoms-per-column [ch5.init-atom]
-
-  let init-xpos (- atoms-per-row * x-dist / 2)  + 0.4  ;the x position of the first atom
-  let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom
-  let xpos init-xpos
-  let row-number 0 ; row number, starts at 0 for easy modulo division
-  ask atoms [ ; setting up the HCP structure
-    if xpos >= (atoms-per-row * x-dist / 2)  [ ; condition for starting new row
-      set row-number row-number + 1
-      set xpos init-xpos + (row-number mod 2) * x-dist / 2
-      set ypos ypos + y-dist
-    ]
-    setxy xpos ypos
-    set xpos xpos + x-dist
-  ]
-
-  ; pin the bottom row
-    ask atoms with-min [ycor] [
-      set pinned? true
-      set shape "circle-X"
-    ]
 end
 
 

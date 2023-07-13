@@ -23,39 +23,17 @@ atoms-own [
 to setup
   clear-all
   mdc.setup-constants
-  ch5.setup-atoms-and-links-and-force-lines
+
+  mdc.setup-atoms-nrc atoms-per-row atoms-per-column
+  ch5.pin-bottom-row
+  vab.setup-links
+
   mdc.init-velocity
 
   ch5.setup-LJ
   aep.setup-messages
 
   reset-ticks
-end
-
-
-to setup-atoms [x-dist y-dist]
-  create-atoms atoms-per-row * atoms-per-column [ch5.init-atom]
-
-  let init-xpos (- atoms-per-row * x-dist / 2)  + 0.4  ;the x position of the first atom
-  let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom
-  let xpos init-xpos
-  let row-number 0 ; row number, starts at 0 for easy modulo division
-  ask atoms [ ; setting up the HCP structure
-    if xpos >= (atoms-per-row * x-dist / 2)  [ ; condition for starting new row
-      set row-number row-number + 1
-      set xpos init-xpos + (row-number mod 2) * x-dist / 2
-      set ypos ypos + y-dist
-    ]
-    setxy xpos ypos
-    set xpos xpos + x-dist
-  ]
-
-  ; pin the bottom row
-
-    ask atoms with-min [ycor] [
-      set pinned? true
-      set shape "circle-X"
-    ]
 end
 
 

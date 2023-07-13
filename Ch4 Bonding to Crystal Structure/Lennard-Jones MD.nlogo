@@ -31,7 +31,10 @@ to setup
   ]
 
   mdc.setup-offsets
-  setup-atoms
+
+  if initial-config = "Solid" [mdc.setup-atoms-natoms num-atoms]
+  if initial-config = "Random" [mdc.setup-atoms-random num-atoms]
+
   mdc.init-velocity
 
   if num-atoms = 3 [
@@ -41,38 +44,6 @@ to setup
 
   reset-timer
   reset-ticks
-end
-
-to setup-atoms
-  create-atoms num-atoms [
-    mdc.init-atom
-  ]
-
-  if initial-config = "Solid" [
-    let l sqrt(num-atoms) ;the # of atoms in a row
-    let x-dist r-min
-    let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
-    let ypos (- l * x-dist / 2) ;the y position of the first atom
-    let xpos (- l * x-dist / 2) ;the x position of the first atom
-    let r-num 0  ;the row number
-    ask turtles [  ;set the atoms; positions
-      if xpos > (l * x-dist / 2)  [  ;condition to start a new row
-        set r-num r-num + 1
-        set xpos (- l * x-dist / 2) + (r-num mod 2) * x-dist / 2
-        set ypos ypos + y-dist
-      ]
-      setxy xpos ypos  ;if we are still in the same row
-      set xpos xpos + x-dist
-    ]
-  ]
-
-  if initial-config = "Random" [
-    ask atoms [
-      setxy random-xcor random-ycor
-    ]
-    mdc.remove-overlap ;make sure atoms aren't overlapping
-  ]
-
 end
 
 
@@ -187,7 +158,7 @@ num-atoms
 num-atoms
 0
 30
-9.0
+20.0
 1
 1
 NIL
@@ -201,7 +172,7 @@ CHOOSER
 initial-config
 initial-config
 "Solid" "Random"
-1
+0
 
 SLIDER
 0
