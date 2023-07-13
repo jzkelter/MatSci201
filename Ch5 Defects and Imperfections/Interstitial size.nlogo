@@ -24,7 +24,6 @@ to setup
   clear-all
   set-default-shape turtles "circle"
   mdc.setup-constants
-
   mdc.setup-atoms-nrc 5 5
   ask atoms [aep.init-atom]
   ch5.pin-bottom-row

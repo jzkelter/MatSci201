@@ -24,8 +24,13 @@ to mdc.setup-constants
 end
 
 to mdc.setup-offsets
-  set force-offset -1 * mdc.calc-force-without-offset cutoff-dist
-  set PE-offset -1 * mdc.calc-pair-PE-without-offset cutoff-dist
+  let cutoff-PE-and-force mdc.LJ-potential-and-force-wo-offset cutoff-dist
+  set force-offset -1 * last cutoff-PE-and-force
+  set PE-offset -1 * first cutoff-PE-and-force
+  
+;  ; this should be the same but somehow has a different effect
+;  set force-offset -1 * mdc.calc-force-without-offset cutoff-dist
+;  set PE-offset -1 * mdc.calc-pair-PE-without-offset cutoff-dist
 end
 
 to mdc.init-atom
@@ -113,7 +118,6 @@ to mdc.init-velocity
   ]
 end
 
-
 to-report mdc.positive-or-negative
   report ifelse-value random 2 = 0 [-1] [1]
 end
@@ -170,16 +174,22 @@ end
 
 
 to mdc.update-force-and-velocity  ; atom procedure
+  ;let total-potential-energy 0
+  
   let n-fx 0
   let n-fy 0
-  ask other atoms in-radius cutoff-dist [
+  let in-radius-atoms other atoms in-radius cutoff-dist
+  ask in-radius-atoms [
     let r distance myself
-    let force mdc.calc-force r
+    let indiv-PE-and-force (mdc.LJ-potential-and-force r)
+    let force last indiv-PE-and-force
+    ;set total-potential-energy total-potential-energy + first indiv-PE-and-force
     face myself
     rt 180
     set n-fx n-fx + (force * dx)  ; assuming mass = 1. If not, neeed to divide force by mass to get acceleration
     set n-fy n-fy + (force * dy)
   ]
+  ;set total-PE total-potential-energy
   
   if not pinned? [
     set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
@@ -188,6 +198,8 @@ to mdc.update-force-and-velocity  ; atom procedure
     set fy n-fy
   ]
 
+  ; if this were really update-force-and-velocity-and-links, there would be
+  ; update-atom-color and update-links
 end
 
 to mdc.scale-velocities
@@ -245,23 +257,24 @@ end
 ;; ****** Lennard-Jones Potential/Force Procedures *****
 ;; *****************************************************
 
-to-report mdc.calc-force [r]
-  report mdc.calc-force-without-offset r + force-offset
+
+
+to-report mdc.LJ-potential-and-force [r]
+  let PE-and-force mdc.LJ-potential-and-force-wo-offset r
+  let potential first PE-and-force + PE-offset
+  let force last PE-and-force + force-offset
+  report list potential force
 end
 
-to-report mdc.calc-force-without-offset [r]  
-  let r^3 r * r * r
-  let r^6 r^3 * r^3
-  report (-eps*4 * 6 / (r^6 * r)) * ((2 / r^6) - 1)
-end
-
-to-report mdc.calc-force-without-offset-mod [r]  
-  let third-power (sigma / r) ^ 3
+to-report mdc.LJ-potential-and-force-wo-offset [r]
+  ; should be sigma instead of 1 here once sigma is global
+  let third-power (1 / r) ^ 3
   let sixth-power third-power ^ 2
   let twelfth-power sixth-power ^ 2
-  report (-eps*4 * 12 / r) * (twelfth-power - (1 / 2) * sixth-power)
+  let force (-48 * eps / r) * (twelfth-power - (1 / 2) * sixth-power)
+  let potential (4 * eps * (twelfth-power - sixth-power))
+  report list potential force
 end
-
 
 to-report mdc.velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
   report pos + v * dt + (1 / 2) * a * (dt ^ 2)
@@ -271,6 +284,17 @@ to-report mdc.velocity-verlet-velocity [v a new-a]  ; velocity, previous acceler
   report v + (1 / 2) * (new-a + a) * dt
 end
 
+; old code from here on down
+
+to-report mdc.calc-force [r]
+  report mdc.calc-force-without-offset r + force-offset
+end
+
+to-report mdc.calc-force-without-offset [r]  
+  let r^3 r * r * r
+  let r^6 r^3 * r^3
+  report (-eps*4 * 6 / (r^6 * r)) * ((2 / r^6) - 1)
+end
 
 to-report mdc.calc-PE
   let U 0  ;; U stands for PE

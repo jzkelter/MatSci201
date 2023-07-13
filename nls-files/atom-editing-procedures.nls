@@ -52,7 +52,8 @@ to aep.add-atoms [ncolor nsigma]
     ifelse abs new-atom-force < 30 [
 
       create-atoms 1 [
-        ch5.init-atom
+        mdc.init-atom
+        aep.init-atom
         set sigma nsigma
         set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
         aep.set-size

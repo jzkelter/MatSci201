@@ -109,8 +109,8 @@ GRAPHICS-WINDOW
 5
 -5
 5
-1
-1
+0
+0
 1
 ticks
 30.0
@@ -172,7 +172,7 @@ CHOOSER
 initial-config
 initial-config
 "Solid" "Random"
-0
+1
 
 SLIDER
 0

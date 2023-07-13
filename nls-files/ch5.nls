@@ -57,7 +57,6 @@ to ch5.update-force-and-velocity-and-links
   
   set pot-E total-potential-energy / 2  ; divide by 2 to not double count pot-E for each atom
 
-
   ; updating velocity and force
   if not pinned? [
     set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
