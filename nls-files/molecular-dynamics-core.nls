@@ -39,6 +39,7 @@ to mdc.init-atom
   set mass 1
   set sigma 1
   set pinned? false
+  set base-color blue
 end
 
 
