@@ -20,14 +20,26 @@ to vab.setup-links
 end
 
 
+;*******************************************************
+;**************** Go Procedures ************************
+;*******************************************************
+
+to vab.update-atom-color-and-links
+  ask atoms [
+    vab.update-atom-color atom-PE
+    vab.update-links other atoms in-radius cutoff-dist
+  ]
+end
+
+
 ;; *****************************************************
 ;; ************* Atom Display procedures ***************
 ;; *****************************************************
 
-to vab.update-atom-color [atom-PE] ; updating atom color
+to vab.update-atom-color [pot-E] ; updating atom color
 
   ifelse color-atoms-by-potential-energy? [
-    set color scale-color color  atom-PE -6 0
+    set color scale-color color  pot-E -6 0
   ] [
     set color base-color
   ]

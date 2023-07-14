@@ -175,22 +175,20 @@ end
 
 to mdc.update-force-and-velocity  ; atom procedure
   ask atoms [
-    ;let total-potential-energy 0
-    
+    let sum-PE 0
     let n-fx 0
     let n-fy 0
-    let in-radius-atoms other atoms in-radius cutoff-dist
-    ask in-radius-atoms [
+    ask other atoms in-radius cutoff-dist [
       let r distance myself
       let indiv-PE-and-force (mdc.LJ-potential-and-force r)
       let force last indiv-PE-and-force
-      ;set total-potential-energy total-potential-energy + first indiv-PE-and-force
       face myself
       rt 180
       set n-fx n-fx + (force * dx)  ; assuming mass = 1. If not, neeed to divide force by mass to get acceleration
       set n-fy n-fy + (force * dy)
+      set sum-PE sum-PE + first indiv-PE-and-force
     ]
-    ;set total-PE total-potential-energy
+    set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
     
     if not pinned? [
       set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
@@ -198,9 +196,6 @@ to mdc.update-force-and-velocity  ; atom procedure
       set fx n-fx
       set fy n-fy
     ]
-    
-    ; if this were really update-force-and-velocity-and-links, there would be
-    ; update-atom-color and update-links
   ]
 end
 

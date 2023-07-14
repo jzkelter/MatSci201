@@ -9,8 +9,8 @@ atoms-own [
   vy     ; y-component of velocity vector
   mass   ; mass of atom
   sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
+  atom-PE ; Potential energy of the atom
   pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
-  pot-E ; Potential energy of the atom
   selected? ; whether the atom is selected or  not to change its size
   base-color  ; display color for the atom when it isn't selected
 ]
@@ -56,7 +56,8 @@ to simulate
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms
 
-  ch5.update-force-and-velocity-and-links
+  ch5.update-force-and-velocity
+  vab.update-atom-color-and-links
 
   mdc.scale-velocities
 

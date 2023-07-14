@@ -33,28 +33,22 @@ end
 ;; *********** Molecular Dynamics Procedures ***********
 ;; *****************************************************
 
-to ch5.update-force-and-velocity-and-links
-  ask atoms [
-    let total-potential-energy 0
-    
+to ch5.update-force-and-velocity
+  ask atoms [    
+    let sum-PE 0
     let n-fx 0
     let n-fy 0
-    let in-radius-atoms other atoms in-radius cutoff-dist
-    ask in-radius-atoms [
-      ; each atom calculates the force it feels from its
-      ; neighboring atoms and sums these forces
+    ask other atoms in-radius cutoff-dist [
       let r distance myself
       let indiv-pot-E-and-force (ch5.LJ-potential-and-force r sigma [sigma] of myself)
       let force last indiv-pot-E-and-force    
       face myself
       rt 180
-      set n-fx n-fx + (force * dx)
+      set n-fx n-fx + (force * dx)  ; assuming mass = 1. If not, neeed to divide force by mass to get acceleration
       set n-fy n-fy + (force * dy)
-      
-      set total-potential-energy total-potential-energy + first indiv-pot-E-and-force
+      set sum-PE sum-PE + first indiv-pot-E-and-force
     ]
-    
-    set pot-E total-potential-energy / 2  ; divide by 2 to not double count pot-E for each atom
+    set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
     
     ; updating velocity and force
     if not pinned? [
@@ -63,10 +57,6 @@ to ch5.update-force-and-velocity-and-links
       set fx n-fx
       set fy n-fy
     ]
-    
-    ; these two could be one procedure, "update-atom-color-and-links"
-    vab.update-atom-color pot-E
-    vab.update-links in-radius-atoms
   ]
 end
 
