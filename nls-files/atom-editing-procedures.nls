@@ -1,4 +1,5 @@
 globals [
+  prev-atom-viz-size  ; previous atom viz size
   message1 ; this variable holds a turtle for displaying messages.
   message2 ; this variable holds a turtle for displaying messages.
 ]

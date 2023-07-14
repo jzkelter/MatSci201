@@ -1,7 +1,7 @@
 globals [
   r-min
   eps
-  -eps*4
+  eps*4
   cutoff-dist
   force-offset
   PE-offset
@@ -19,7 +19,7 @@ to mdc.setup-constants
   set kb 0.1 ; just picking a random constant for Kb that makes things work reasonably
   set r-min  2 ^ (1 / 6)
   set eps 1
-  set -eps*4 -4 * eps
+  set eps*4 eps * 4
   set cutoff-dist 2.5 * r-min
 end
 
@@ -268,11 +268,10 @@ end
 
 to-report mdc.LJ-potential-and-force-wo-offset [r]
   ; should be sigma instead of 1 here once sigma is global
-  let third-power (1 / r) ^ 3
-  let sixth-power third-power ^ 2
-  let twelfth-power sixth-power ^ 2
-  let force (-48 * eps / r) * (twelfth-power - (1 / 2) * sixth-power)
-  let potential (4 * eps * (twelfth-power - sixth-power))
+  let third-power (1 / r) * (1 / r) * (1 / r)
+  let sixth-power third-power * third-power
+  let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1)
+  let potential (eps*4 * (sixth-power * sixth-power - sixth-power))
   report list potential force
 end
 
@@ -280,13 +279,13 @@ to-report mdc.calc-PE
   let U 0  ;; U stands for PE
 
   ask other atoms in-radius cutoff-dist [
-    set U U + mdc.calc-pair-PE (distance myself)
+    set U U + mdc.calc-pair-PE-with myself
   ]
   report U
 end
 
-to-report mdc.calc-pair-PE [r]
-  let PE-and-force mdc.LJ-potential-and-force r
+to-report mdc.calc-pair-PE-with [other-atom]
+  let PE-and-force mdc.LJ-potential-and-force distance other-atom
   report first PE-and-force
 end
 

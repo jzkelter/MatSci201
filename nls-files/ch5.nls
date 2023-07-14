@@ -1,6 +1,4 @@
 globals [
-  prev-atom-viz-size  ; previous atom viz size
-  
   LJ-force-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
   LJ-pot-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
 ]
@@ -77,11 +75,10 @@ end
 
 to-report ch5.LJ-potential-and-force [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
   let sig (sigma1 + sigma2) / 2
-  let third-power (sig / r) ^ 3
-  let sixth-power third-power ^ 2
-  let twelfth-power sixth-power ^ 2
-  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) - ch5.LJ-force-cutoff sig
-  let potential (4 * eps * (twelfth-power - sixth-power)) - ch5.LJ-pot-cutoff sig
+  let third-power (sig / r) * (sig / r) * (sig / r)
+  let sixth-power third-power * third-power
+  let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1) - ch5.LJ-force-cutoff sig
+  let potential (eps*4 * (sixth-power * sixth-power - sixth-power)) - ch5.LJ-pot-cutoff sig
   report list potential force
 end
 
