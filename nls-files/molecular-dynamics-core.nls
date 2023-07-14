@@ -276,26 +276,6 @@ to-report mdc.LJ-potential-and-force-wo-offset [r]
   report list potential force
 end
 
-to-report mdc.velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
-  report pos + v * dt + (1 / 2) * a * (dt ^ 2)
-end
-
-to-report mdc.velocity-verlet-velocity [v a new-a]  ; velocity, previous acceleration, new acceleration
-  report v + (1 / 2) * (new-a + a) * dt
-end
-
-; old code from here on down
-
-to-report mdc.calc-force [r]
-  report mdc.calc-force-without-offset r + force-offset
-end
-
-to-report mdc.calc-force-without-offset [r]  
-  let r^3 r * r * r
-  let r^6 r^3 * r^3
-  report (-eps*4 * 6 / (r^6 * r)) * ((2 / r^6) - 1)
-end
-
 to-report mdc.calc-PE
   let U 0  ;; U stands for PE
 
@@ -306,13 +286,40 @@ to-report mdc.calc-PE
 end
 
 to-report mdc.calc-pair-PE [r]
-  report mdc.calc-pair-PE-without-offset r + PE-offset
+  let PE-and-force mdc.LJ-potential-and-force r
+  report first PE-and-force
 end
 
-to-report mdc.calc-pair-PE-without-offset [r]
-  let rsquare r ^ 2
-  let attract-term 1 / rsquare ^ 3
-  let repel-term attract-term * attract-term
-  ;NOTE could do this a little faster by attract-term * (attract-term -1)
-  report 4 * eps * (repel-term - attract-term)
+
+to-report mdc.velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
+  report pos + v * dt + (1 / 2) * a * (dt ^ 2)
 end
+
+to-report mdc.velocity-verlet-velocity [v a new-a]  ; velocity, previous acceleration, new acceleration
+  report v + (1 / 2) * (new-a + a) * dt
+end
+
+
+;; old code from here on down
+;
+;to-report mdc.calc-force [r]
+;  report mdc.calc-force-without-offset r + force-offset
+;end
+;
+;to-report mdc.calc-force-without-offset [r]  
+;  let r^3 r * r * r
+;  let r^6 r^3 * r^3
+;  report (-eps*4 * 6 / (r^6 * r)) * ((2 / r^6) - 1)
+;end
+;
+;to-report mdc.calc-pair-PE-old [r]
+;  report mdc.calc-pair-PE-without-offset r + PE-offset
+;end
+;
+;to-report mdc.calc-pair-PE-without-offset [r]
+;  let rsquare r ^ 2
+;  let attract-term 1 / rsquare ^ 3
+;  let repel-term attract-term * attract-term
+;  ;NOTE could do this a little faster by attract-term * (attract-term -1)
+;  report 4 * eps * (repel-term - attract-term)
+;end
