@@ -56,11 +56,11 @@ to simulate
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms
 
-  ask atoms [ch5.update-force-and-velocity-and-links]
+  ch5.update-force-and-velocity-and-links
 
   mdc.scale-velocities
 
-  ask atom-links [vab.color-links]  ; stylizing/coloring links
+  vab.color-links  ; stylizing/coloring links
 
   tick-advance dt
   update-plots

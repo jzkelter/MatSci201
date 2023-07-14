@@ -70,8 +70,8 @@ to go
   (ifelse
     go-mode = "simulate" [simulate]
     go-mode = "drag atoms" [
-      ask links [show-link]
       mdc.drag-atoms-with-mouse
+      ask links [show-link]
       ask links [set-label-distance]
     ]
   )
@@ -81,7 +81,7 @@ end
 to simulate
   ask links [hide-link]
   mdc.move-atoms
-  ask atoms [mdc.update-force-and-velocity]
+  mdc.update-force-and-velocity
   if constant-temp? [mdc.scale-velocities]
 
   tick-advance dt

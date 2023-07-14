@@ -16,7 +16,7 @@ to vab.setup-links
     vab.update-links in-radius-atoms
   ]
 
-  ask atom-links [vab.color-links]
+  vab.color-links
 end
 
 
@@ -64,18 +64,20 @@ end
 
 
 to vab.color-links
-  set thickness .25 ; necessary because the links die and reform every tick
-  let min-eq-bond-len 1.1 * ([sigma] of end1 + [sigma] of end2) / 2
-  let max-eq-bond-len 1.15 * ([sigma] of end1 + [sigma] of end2) / 2
-  (ifelse
-    link-length < min-eq-bond-len [
-      let tmp-len sqrt(min-eq-bond-len - link-length)
-      let tmp-color extract-rgb scale-color red tmp-len 1 (-.2)
-      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30) ]
-    link-length > max-eq-bond-len [
-      let tmp-len sqrt (link-length - max-eq-bond-len)
-      let tmp-color extract-rgb scale-color yellow tmp-len 1 -.2
-      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30)]
-    [ let tmp-color extract-rgb white
-      set color insert-item 3 tmp-color 125 ])
+  ask atom-links [
+    set thickness .25 ; necessary because the links die and reform every tick
+    let min-eq-bond-len 1.1 * ([sigma] of end1 + [sigma] of end2) / 2
+    let max-eq-bond-len 1.15 * ([sigma] of end1 + [sigma] of end2) / 2
+    (ifelse
+      link-length < min-eq-bond-len [
+        let tmp-len sqrt(min-eq-bond-len - link-length)
+        let tmp-color extract-rgb scale-color red tmp-len 1 (-.2)
+        set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30) ]
+      link-length > max-eq-bond-len [
+        let tmp-len sqrt (link-length - max-eq-bond-len)
+        let tmp-color extract-rgb scale-color yellow tmp-len 1 -.2
+        set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30)]
+      [ let tmp-color extract-rgb white
+        set color insert-item 3 tmp-color 125 ])
+  ]
 end

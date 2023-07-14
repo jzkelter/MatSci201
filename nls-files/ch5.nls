@@ -34,38 +34,40 @@ end
 ;; *****************************************************
 
 to ch5.update-force-and-velocity-and-links
-  let total-potential-energy 0
-  
-  let n-fx 0
-  let n-fy 0
-  let in-radius-atoms other atoms in-radius cutoff-dist
-  ask in-radius-atoms [
-    ; each atom calculates the force it feels from its
-    ; neighboring atoms and sums these forces
-    let r distance myself
-    let indiv-pot-E-and-force (ch5.LJ-potential-and-force r sigma [sigma] of myself)
-    let force last indiv-pot-E-and-force    
-    face myself
-    rt 180
-    set n-fx n-fx + (force * dx)
-    set n-fy n-fy + (force * dy)
+  ask atoms [
+    let total-potential-energy 0
     
-    set total-potential-energy total-potential-energy + first indiv-pot-E-and-force
+    let n-fx 0
+    let n-fy 0
+    let in-radius-atoms other atoms in-radius cutoff-dist
+    ask in-radius-atoms [
+      ; each atom calculates the force it feels from its
+      ; neighboring atoms and sums these forces
+      let r distance myself
+      let indiv-pot-E-and-force (ch5.LJ-potential-and-force r sigma [sigma] of myself)
+      let force last indiv-pot-E-and-force    
+      face myself
+      rt 180
+      set n-fx n-fx + (force * dx)
+      set n-fy n-fy + (force * dy)
+      
+      set total-potential-energy total-potential-energy + first indiv-pot-E-and-force
     ]
-  
-  set pot-E total-potential-energy / 2  ; divide by 2 to not double count pot-E for each atom
-
-  ; updating velocity and force
-  if not pinned? [
-    set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
-    set vy mdc.velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
-    set fx n-fx
-    set fy n-fy
+    
+    set pot-E total-potential-energy / 2  ; divide by 2 to not double count pot-E for each atom
+    
+    ; updating velocity and force
+    if not pinned? [
+      set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
+      set vy mdc.velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
+      set fx n-fx
+      set fy n-fy
+    ]
+    
+    ; these two could be one procedure, "update-atom-color-and-links"
+    vab.update-atom-color pot-E
+    vab.update-links in-radius-atoms
   ]
-  
-  ; these two could be one procedure, "update-atom-color-and-links"
-  vab.update-atom-color pot-E
-  vab.update-links in-radius-atoms
 end
 
 
