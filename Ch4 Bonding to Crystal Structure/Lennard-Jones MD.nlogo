@@ -34,7 +34,7 @@ to setup
 
   mdc.setup-offsets
 
-  if initial-config = "Solid" [mdc.setup-atoms-natoms num-atoms]
+  if initial-config = "Solid" [mdc.new-setup-atoms-natoms num-atoms]
   if initial-config = "Random" [mdc.setup-atoms-random num-atoms]
 
   mdc.init-velocity
@@ -160,7 +160,7 @@ num-atoms
 num-atoms
 0
 30
-3.0
+25.0
 1
 1
 NIL
@@ -174,7 +174,7 @@ CHOOSER
 initial-config
 initial-config
 "Solid" "Random"
-1
+0
 
 SLIDER
 0
@@ -221,7 +221,7 @@ CHOOSER
 go-mode
 go-mode
 "drag atoms" "simulate"
-0
+1
 
 TEXTBOX
 60

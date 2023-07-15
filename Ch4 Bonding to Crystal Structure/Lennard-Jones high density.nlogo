@@ -34,7 +34,7 @@ to setup
 
   mdc.setup-offsets
 
-  if initial-config = "Solid" [mdc.setup-atoms-natoms num-atoms]
+  if initial-config = "Solid" [mdc.new-setup-atoms-natoms num-atoms]
   if initial-config = "Random" [mdc.setup-atoms-random num-atoms]
 
   mdc.init-velocity

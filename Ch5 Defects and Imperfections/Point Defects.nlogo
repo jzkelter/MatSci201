@@ -28,7 +28,7 @@ to setup
   clear-all
   mdc.setup-constants
 
-  mdc.setup-atoms-nrc atoms-per-row atoms-per-column
+  mdc.new-setup-atoms-nrc atoms-per-row atoms-per-column
   ask atoms [aep.init-atom]
   ch5.pin-bottom-row
   vab.setup-links

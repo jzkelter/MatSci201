@@ -59,20 +59,53 @@ to mdc.init-atom
 end
 
 
+to mdc.new-setup-atoms-nrc [natoms-row natoms-column]
+  let x-dist r-min ; the distance between atoms in the x direction
+  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+  
+  ; set first atom
+  create-atoms 1 [
+    mdc.init-atom
+    setxy (- natoms-row * x-dist / 2 + 0.4) (- natoms-column * y-dist / 2)
+  ]
+  
+  ; create first row
+  repeat natoms-row - 1 [
+    ask atoms with [xcor = max [xcor] of atoms] [
+      hatch 1 [
+        setxy (xcor + x-dist) (ycor)
+      ]
+    ]
+  ]
+  
+  ; create columns
+  let pos-neg 1 ; alternate between 1 and -1
+  repeat natoms-column - 1 [
+    ask atoms with [ycor = max [ycor] of atoms] [
+      hatch 1 [
+        setxy (xcor + pos-neg * x-dist / 2) ((ycor + y-dist))
+      ]
+    ]
+    set pos-neg pos-neg * -1
+  ]
+end
+
+
 to mdc.setup-atoms-nrc [natoms-row natoms-column]
   let x-dist r-min ; the distance between atoms in the x direction
   let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
 
-  create-atoms natoms-row * natoms-column [mdc.init-atom]
-
   let init-xpos (- natoms-row * x-dist / 2)  + 0.4  ;the x position of the first atom
-  let ypos (- natoms-column * y-dist / 2) ;the y position of the first atom
   let xpos init-xpos
-  let row-number 0 ; row number, starts at 0 for easy modulo division
-  ask atoms [ ; setting up the HCP structure
+  let ypos (- natoms-column * y-dist / 2) ;the y position of the first atom
+  let r-num 0 ; row number, starts at 0 for easy modulo division
+  
+  create-atoms natoms-row * natoms-column [ ; setting up the HCP structure
+    mdc.init-atom
+    
     if xpos >= (natoms-row * x-dist / 2)  [ ; condition for starting new row
-      set row-number row-number + 1
-      set xpos init-xpos + (row-number mod 2) * x-dist / 2
+      set r-num r-num + 1
+      set xpos init-xpos + (r-num mod 2) * x-dist / 2
       set ypos ypos + y-dist
     ]
     setxy xpos ypos
@@ -80,26 +113,86 @@ to mdc.setup-atoms-nrc [natoms-row natoms-column]
   ]
 end
 
-to mdc.setup-atoms-natoms [natoms]
-  create-atoms natoms [
-    mdc.init-atom
-  ]
 
+; works the best so far, keeps hexagonal shape if possible
+to mdc.new-setup-atoms-natoms [natoms]
+  ; create a square of atoms >= actual natoms
+  let l ceiling sqrt(natoms)
+  mdc.new-setup-atoms-nrc l l
+  
+  let diff l ^ 2 - natoms
+  ; something new, idk how to explain it
+  (ifelse
+    diff < l / 2 [ ask max-n-of diff atoms [xcor + ycor * 10] [die] ]
+    diff >= l [
+      ask max-n-of l atoms [ycor] [die]
+      ask max-n-of (diff - l) atoms [xcor + ycor * 10] [die]
+    ]
+    [ ask max-n-of diff atoms [xcor + ycor * 1.8] [die] ]
+  )
+end
+
+
+; this works, but doesn't try to create closest to a square
+to mdc.new-setup-atoms-natoms-v1 [natoms]
+  ; create a square of atoms >= actual natoms
+  let l ceiling sqrt(natoms)
+  mdc.new-setup-atoms-nrc l l
+  
+  let diff l ^ 2 - natoms
+  ask max-n-of diff atoms [xcor + ycor * 10] [die]
+end
+
+; works better I think but doesn't have that HCP feeling
+to mdc.new-setup-atoms-natoms-v2 [natoms]
+  ; create a square of atoms >= actual natoms
+  let l ceiling sqrt(natoms)
+  mdc.new-setup-atoms-nrc l l
+  
+  let diff l ^ 2 - natoms
+  ; try to make it as circular as possible
+  ask max-n-of diff atoms [(xcor - 0.3) ^ 2 + (ycor ^ 2)] [die]
+end
+
+;; works the best so far, keeps hexagonal shape if possible
+;to mdc.new-setup-atoms-natoms-v3 [natoms]
+;  ; create a square of atoms >= actual natoms
+;  let l ceiling sqrt(natoms)
+;  mdc.new-setup-atoms-nrc l l
+;  
+;  let diff l ^ 2 - natoms
+;  ; something new, idk how to explain it
+;  (ifelse
+;    diff < l / 2 [ ask max-n-of diff atoms [xcor + ycor * 10] [die] ]
+;    diff >= l [
+;      ask max-n-of l atoms [ycor] [die]
+;      ask max-n-of (diff - l) atoms [xcor + ycor * 10] [die]
+;    ]
+;    [ ask max-n-of diff atoms [xcor + ycor * 1.8] [die] ]
+;  )
+;end
+
+
+to mdc.setup-atoms-natoms [natoms]
+  let l sqrt(natoms) ; the # of atoms in a row
+  
   let x-dist r-min
   let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
   
-  let l sqrt(natoms) ;the # of atoms in a row
+  let init-xpos (- l * x-dist / 2) + 0.4 ; the x position of the first atom
+  let xpos init-xpos
+  let ypos (- l * y-dist / 2) ; the y position of the first atom
+  let r-num 0  ; row number, starts at 0 for easy modulo division
   
-  let ypos (- l * x-dist / 2) ;the y position of the first atom
-  let xpos (- l * x-dist / 2) ;the x position of the first atom
-  let r-num 0  ;the row number
-  ask atoms [  ;set the atoms; positions
-    if xpos > (l * x-dist / 2)  [  ;condition to start a new row
+  create-atoms natoms [  ; setting up the HCP structure
+    mdc.init-atom
+    
+    if xpos >= (l * x-dist / 2)  [ ; condition to start a new row
       set r-num r-num + 1
-      set xpos (- l * x-dist / 2) + (r-num mod 2) * x-dist / 2
+      set xpos init-xpos + (r-num mod 2) * x-dist / 2
       set ypos ypos + y-dist
     ]
-    setxy xpos ypos  ;if we are still in the same row
+    setxy xpos ypos  ; if we are still in the same row
     set xpos xpos + x-dist
   ]
 end
