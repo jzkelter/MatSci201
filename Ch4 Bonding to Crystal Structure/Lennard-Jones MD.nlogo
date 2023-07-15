@@ -1,8 +1,10 @@
 __includes [ "../nls-files/molecular-dynamics-core.nls" ]
 
+;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
 
 atoms-own [
+  ;; the following variables are for the molecular-dynamics-core.nls file
   fx     ; x-component of force vector from last time step
   fy     ; y-component of force vector from last time step
   vx     ; x-component of velocity vector

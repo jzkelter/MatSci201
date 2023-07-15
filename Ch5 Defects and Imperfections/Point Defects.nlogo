@@ -1,8 +1,10 @@
 __includes [ "../nls-files/ch5.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
 
+;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
 
 atoms-own [
+  ;; the following variables are for the molecular-dynamics-core.nls file
   fx     ; x-component of force vector from last time step
   fy     ; y-component of force vector from last time step
   vx     ; x-component of velocity vector
@@ -13,6 +15,7 @@ atoms-own [
   pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
   base-color  ; display color for the atom when it isn't selected
 
+  ;; the following variable is for the atom-editing-procedures.nls file
   selected? ; whether the atom is selected or  not to change its size
 ]
 

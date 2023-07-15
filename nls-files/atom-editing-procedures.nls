@@ -1,3 +1,9 @@
+;; any model that uses this nls file needs to have the following variable declared in atoms-own:
+;; ex:
+;; atoms-own [
+;;   selected?
+;; ]
+
 globals [
   prev-atom-viz-size  ; previous atom viz size
   message1 ; this variable holds a turtle for displaying messages.
