@@ -35,7 +35,7 @@ to setup
 
   mdc.init-velocity
 
-  ch5.setup-LJ
+  ch5.setup-offsets
   aep.setup-messages
 
   reset-ticks

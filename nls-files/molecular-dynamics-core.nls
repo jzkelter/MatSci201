@@ -23,6 +23,9 @@ globals [
   
   force-offset
   PE-offset
+  
+  LJ-force-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
+  LJ-pot-cutoff-values  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
 ]
 
 
@@ -48,6 +51,15 @@ to mdc.setup-offsets
 ;  set force-offset -1 * mdc.calc-force-without-offset cutoff-dist
 ;  set PE-offset -1 * mdc.calc-pair-PE-without-offset cutoff-dist
 end
+
+to ch5.setup-offsets
+  set LJ-pot-cutoff-values n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
+  set LJ-force-cutoff-values n-values 41 [0] ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
+
+  set LJ-pot-cutoff-values map  [s -> first ch5.LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
+  set LJ-force-cutoff-values map  [s -> last ch5.LJ-potential-and-force cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
+end
+
 
 to mdc.init-atom
   set shape "circle"
@@ -290,6 +302,7 @@ to mdc.update-force-and-velocity  ; atom procedure
     let n-fy 0
     ask other atoms in-radius cutoff-dist [
       let r distance myself
+      ;; this next line needs to be changed to switch between LJ's
       let indiv-PE-and-force (mdc.LJ-potential-and-force r)
       let force last indiv-PE-and-force
       face myself
@@ -308,6 +321,34 @@ to mdc.update-force-and-velocity  ; atom procedure
     ]
   ]
 end
+
+to ch5.update-force-and-velocity
+  ask atoms [    
+    let sum-PE 0
+    let n-fx 0
+    let n-fy 0
+    ask other atoms in-radius cutoff-dist [
+      let r distance myself
+      let indiv-pot-E-and-force (ch5.LJ-potential-and-force r sigma [sigma] of myself)
+      let force last indiv-pot-E-and-force    
+      face myself
+      rt 180
+      set n-fx n-fx + (force * dx)  ; assuming mass = 1. If not, neeed to divide force by mass to get acceleration
+      set n-fy n-fy + (force * dy)
+      set sum-PE sum-PE + first indiv-pot-E-and-force
+    ]
+    set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+    
+    ; updating velocity and force
+    if not pinned? [
+      set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
+      set vy mdc.velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
+      set fx n-fx
+      set fy n-fy
+    ]
+  ]
+end
+
 
 to mdc.scale-velocities
   let ctemp mdc.current-temp
@@ -364,7 +405,7 @@ end
 ;; ****** Lennard-Jones Potential/Force Procedures *****
 ;; *****************************************************
 
-
+;; this next section is LJ for single sigma
 
 to-report mdc.LJ-potential-and-force [r]
   let PE-and-force mdc.LJ-potential-and-force-wo-offset r
@@ -396,6 +437,44 @@ to-report mdc.calc-pair-PE-with [other-atom]
   report first PE-and-force
 end
 
+
+
+;; this next section is LJ for multiple sigma
+
+to-report ch5.LJ-potential-and-force [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
+  let sig (sigma1 + sigma2) / 2
+  let third-power (sig / r) * (sig / r) * (sig / r)
+  let sixth-power third-power * third-power
+  let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1) - ch5.LJ-force-cutoff sig
+  let potential (eps*4 * (sixth-power * sixth-power - sixth-power)) - ch5.LJ-pot-cutoff sig
+  report list potential force
+end
+
+to-report ch5.calc-PE
+  let U 0  ;; U stands for PE
+
+  ask other atoms in-radius cutoff-dist [
+    set U U + ch5.calc-pair-PE-with myself
+  ]
+  report U
+end
+
+to-report ch5.calc-pair-PE-with [other-atom]
+  let PE-and-force ch5.LJ-potential-and-force (distance other-atom) sigma  [sigma] of other-atom
+  report first PE-and-force
+end
+
+to-report ch5.LJ-force-cutoff [sig]
+  report item round (sig / .05) LJ-force-cutoff-values
+end
+
+to-report ch5.LJ-pot-cutoff [sig]
+  report item round (sig / .05) LJ-pot-cutoff-values
+end
+
+
+
+;; velocity verlet used by both
 
 to-report mdc.velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
   report pos + v * dt + (1 / 2) * a * (dt ^ 2)
