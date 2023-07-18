@@ -160,7 +160,7 @@ num-atoms
 num-atoms
 0
 30
-25.0
+30.0
 1
 1
 NIL

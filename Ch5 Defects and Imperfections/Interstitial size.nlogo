@@ -37,7 +37,7 @@ to setup
 
   setup-interstitial
 
-  ch5.setup-LJ
+  ch5.setup-offsets
   aep.setup-messages
 
   reset-ticks
