@@ -35,7 +35,7 @@ to setup
 
   mdc.init-velocity
 
-  ch5.setup-offsets
+  mdc.setup-offsets-multsig
   aep.setup-messages
 
   reset-ticks
@@ -60,7 +60,7 @@ to simulate
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms
 
-  ch5.update-force-and-velocity
+  mdc.update-force-and-velocity-multsig
   vab.update-atom-color-and-links
 
   mdc.scale-velocities
@@ -73,7 +73,7 @@ end
 
 to interact
   (ifelse
-    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse]
+    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-multsig]
     click-mode = "delete-atoms" [aep.delete-atoms]
     click-mode = "add-atoms" [aep.add-atoms new-atom-color new-atom-sigma]
     click-mode = "select-atoms" [aep.select-atoms]

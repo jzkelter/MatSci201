@@ -37,7 +37,7 @@ to setup
 
   setup-interstitial
 
-  ch5.setup-offsets
+  mdc.setup-offsets-multsig
   aep.setup-messages
 
   reset-ticks
@@ -76,7 +76,7 @@ to simulate
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms
 
-  ch5.update-force-and-velocity
+  mdc.update-force-and-velocity-multsig
   vab.update-atom-color-and-links
   mdc.scale-velocities
   vab.color-links  ; stylizing/coloring links
@@ -86,7 +86,7 @@ to simulate
 end
 
 to interact
-  mdc.drag-atoms-with-mouse
+  mdc.drag-atoms-with-mouse-multsig
 end
 
 

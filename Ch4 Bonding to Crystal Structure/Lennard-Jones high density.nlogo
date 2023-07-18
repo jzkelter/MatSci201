@@ -32,7 +32,7 @@ to setup
     set cutoff-dist 2.5 * r-min
   ]
 
-  mdc.setup-offsets
+  mdc.setup-offsets-singlesig
 
   if initial-config = "Solid" [mdc.new-setup-atoms-natoms num-atoms]
   if initial-config = "Random" [mdc.setup-atoms-random num-atoms]
@@ -72,7 +72,7 @@ to go
   (ifelse
     go-mode = "simulate" [simulate]
     go-mode = "drag atoms" [
-      mdc.drag-atoms-with-mouse
+      mdc.drag-atoms-with-mouse-singlesig
       ask links [show-link]
       ask links [set-label-distance]
     ]
@@ -83,7 +83,7 @@ end
 to simulate
   ask links [hide-link]
   mdc.move-atoms
-  mdc.update-force-and-velocity
+  mdc.update-force-and-velocity-singlesig
   if constant-temp? [mdc.scale-velocities]
 
   tick-advance dt
