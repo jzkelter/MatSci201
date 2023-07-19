@@ -1,8 +1,7 @@
+__includes [ "../nls-files/ch8.nls" ]
+
 breed [atoms atom]
-breed [fl-ends fl-end] ; turtles at the ends of the force lines, point in direction the force is acting
-undirected-link-breed [fl-links fl-link] ; force line links
 undirected-link-breed [wall-links wall-link] ; force line links
-undirected-link-breed [atom-links atom-link] ; links between atoms
 
 atoms-own [
   fx     ; x-component of force vector
@@ -16,32 +15,10 @@ atoms-own [
 ]
 
 globals [
-  eps ; used in LJ force. Well depth; measure of how strongly particles attract each other
-  sigma ; used in LJ force. Distance at which intermolecular potential between 2 particles is 0
-  cutoff-dist ; each atom is influenced by its neighbors within this distance (LJ force)
-  dt ; time step for the velocity verlet algorithm
-  sqrt-2-kb-over-m  ; constant. Used when calculating the thermal velocity. Square root of
-                    ; (2 * boltzmann constant / m). It is arbitrary for this simulation since
-                    ; the units are also arbitrary.
-  link-check-dist ; each atom links with neighbors within this distance
-  prev-lattice-view ; the lattice view in the previous time step
-  upper-left-fl ; upper left force line - shear
-  left-fl ; left force line - tension, compression
-  right-edge ; where the right side of the sample is (xcor) - tension,
-             ; compression - used in determining length of sample
-  orig-length ; original length of sample
-  prev-length ; length of sample in previous time step
-  median-ycor ; median ycor of atoms from initial lattice setup
-  top-neck-atoms ; agentset of atoms on the top of the neck (thin region) (tension).
-                 ; Used in calculating stress
-  bottom-neck-atoms ; agentset of atoms on the bottom of the neck (thin region) (tension).tu
-                    ; Used in calculating stress
-  num-forced-atoms ; number of atoms receiving external force directly
-  unpinned-atoms ; atoms that are not pinned
-  equalizing-LJ-force ; force to counteract LJ forces in the x-direction (tension)
   ceiling-ycor
   floor-ycor
 ]
+
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ;; Setup Procedures ;;
@@ -253,23 +230,6 @@ to setup-atoms-and-links-and-force-lines
   set unpinned-atoms atoms with [not pinned?]
 end
 
-to init-velocity ; initializes velocity for each atom based on the initial system-temp. Creates a
-                 ; random aspect in the velocity split between the x velocity and the y velocity
-  let speed-avg sqrt-2-kb-over-m * sqrt system-temp
-  ask unpinned-atoms [
-    let x-portion random-float 1
-    set vx speed-avg * x-portion * positive-or-negative
-    set vy speed-avg * (1 - x-portion) * positive-or-negative]
-  if force-mode = "Tension" [
-    ask atoms with [ ex-force-applied? ]  [
-      set vx 0
-      set vy 0 ]
-  ]
-end
-
-to-report positive-or-negative
-  report ifelse-value random 2 = 0 [-1] [1]
-end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Procedures ;;
@@ -297,93 +257,6 @@ to go
   update-plots
 end
 
-to update-lattice-view
-  (ifelse lattice-view = "large-atoms" [
-    ask atoms [
-      show-turtle
-      set size .9
-    ]
-  ]
-  lattice-view = "small-atoms" [
-    ask atoms [
-       show-turtle
-       set size .6
-    ]
-  ]
-  [; lattice-view = hide-atoms
-      ask atoms [ hide-turtle ]
-  ])
-  set prev-lattice-view lattice-view
-end
-
-; this heats or cools the system based on the average temperature of the system compared to the set system-temp
-to control-temp
-  let current-speed-avg mean [ sqrt (vx ^ 2 + vy ^ 2) ] of unpinned-atoms
-  let target-speed-avg sqrt-2-kb-over-m * sqrt system-temp
-  if current-speed-avg != 0 [
-    let scaling-factor target-speed-avg / current-speed-avg
-    ask unpinned-atoms [
-      set vx vx * scaling-factor
-      set vy vy * scaling-factor
-    ]
-  ]
-end
-
-to delete-atoms
-  if mouse-down? [
-    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
-      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
-  ]
-  display
-end
-
-to move  ; atom procedure, uses velocity-verlet algorithm
-  set xcor velocity-verlet-pos xcor vx (fx / mass)
-  set ycor velocity-verlet-pos ycor vy (fy / mass)
-  if xcor > max-pxcor or xcor < min-pxcor [
-    die ; kills atoms when they move off the world
-  ]
-end
-
-to calculate-fl-positions ; (calculate new force line positions)
-  ifelse force-mode = "Shear" [
-    set upper-left-fl min [xcor] of atoms with [ ycor >= median-ycor ]
-    ask fl-ends [ set xcor upper-left-fl]
-  ]
-  [ ; force-mode = tension or compression
-    set left-fl min [xcor] of atoms
-    ask fl-ends with [xcor < 0] [ set xcor left-fl ]
-  ]
-  ifelse (f-app + -1 * equalizing-LJ-force) = 0 [
-    ask fl-ends [ hide-turtle ]
-    ask fl-links [ hide-link ]
-  ]
-  [
-    ask fl-ends [ show-turtle ]
-    ask fl-links [ show-link ]
-  ]
-end
-
-; find the atoms closest to the force line that will be the ones receiving the external force
-to identify-force-atoms
-  (ifelse force-mode = "Shear" [
-    ask atoms [ set ex-force-applied?  False ]
-    let forced-atoms atoms with [ ycor >= median-ycor and (distancexy upper-left-fl ycor) <= 1]
-    set num-forced-atoms count forced-atoms
-    ask forced-atoms [
-      set ex-force-applied?  True
-    ]
-    ]
-    force-mode = "Compression" [
-      ask atoms [ set ex-force-applied?  False ]
-      let forced-atoms atoms with [ (distancexy left-fl ycor) <= 1]
-      set num-forced-atoms count forced-atoms
-      ask forced-atoms [
-        set ex-force-applied?  True
-    ]
-  ]) ; for tension, the same atoms in the left shoulder of the sample always receive the force
-end
-
 
 to adjust-force
   if precision prev-length 6 >= precision (right-edge - left-fl) 6 [
@@ -404,8 +277,8 @@ to update-force-and-velocity-and-links
     ; neighboring atoms and sums these forces
     let r distance myself
     let indiv-PE-and-force (LJ-potential-and-force r)
-    let force item 1 indiv-PE-and-force
-    set total-potential-energy total-potential-energy + item 0 indiv-PE-and-force
+    let force last indiv-PE-and-force
+    set total-potential-energy total-potential-energy + first indiv-PE-and-force
     face myself
     rt 180
     set new-fx new-fx + (force * dx)
@@ -458,101 +331,12 @@ to-report ceiling-or-floor-force
   report f
 end
 
-to update-atom-color [total-force] ; updating atom color
-  (ifelse update-atom-color? [
-    set-color total-force
-  ]
-   [ set color blue ])
-end
-
-to update-links [in-radius-atoms] ; updating links
-  if show-diagonal-right-links? [
-    set heading 330
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-  if show-diagonal-left-links? [
-    set heading 30
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-  if show-horizontal-links? [
-    set heading 90
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-end
-
-to link-with-atoms-in-cone [atom-set]
-  let in-cone-atoms (atom-set in-cone link-check-dist 60)
-    if any? in-cone-atoms [
-      create-atom-link-with min-one-of in-cone-atoms [distance myself]
-    ]
-end
-
-to-report report-new-force
-  set shape "circle-dot"
-  (ifelse force-mode = "Tension" [
-    report -1 * f-app / num-forced-atoms
-    ]
-    [ ; Shear and Compression
-      report f-app / num-forced-atoms
-    ]
-  )
-end
-
-to-report LJ-potential-and-force [ r ] ; for the force, positive = attractive, negative = repulsive
-  let third-power (sigma / r) ^ 3
-  let sixth-power third-power ^ 2
-  let twelfth-power sixth-power ^ 2
-  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) + .0001
-  let potential (4 * eps * (twelfth-power - sixth-power)) + .00001
-  report list potential force
-end
-
-to-report velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
-  report pos + v * dt + (1 / 2) * a * (dt ^ 2)
-end
-
-to-report velocity-verlet-velocity [v a new-a]  ; velocity, acceleration, new acceleration
-  report v + (1 / 2) * (new-a + a) * dt
-end
-
-to set-color [v]
-  set color scale-color blue v -.9 0
-end
-
-to-report strain ; tension only
-  report ((right-edge - left-fl) - orig-length) / orig-length
-end
 
 to-report stress ; tension only
   let avg-max mean [ycor] of top-neck-atoms
   let avg-min mean [ycor] of bottom-neck-atoms
   let min-A avg-max - avg-min
   report (-1 * ((-1 * f-app) + equalizing-LJ-force) / min-A)
-end
-
-to-report report-indiv-ex-force
-  report (f-app + -1 * equalizing-LJ-force) / num-forced-atoms
-end
-
-to-report report-total-ex-force
-  report f-app + -1 * equalizing-LJ-force
-end
-
-to color-links
-  set thickness .25 ; necessary because the links die and reform every tick
-  let min-eq-bond-len .991
-  let max-eq-bond-len 1.00907
-  (ifelse
-    link-length < min-eq-bond-len [
-      let tmp-len sqrt(min-eq-bond-len - link-length)
-      let tmp-color extract-rgb scale-color red tmp-len 1 -.2
-      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30) ]
-    link-length > max-eq-bond-len [
-      let tmp-len sqrt (link-length - max-eq-bond-len)
-      let tmp-color extract-rgb scale-color yellow tmp-len 1 -.2
-      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30)]
-    [ let tmp-color extract-rgb white
-      set color insert-item 3 tmp-color 125 ])
 end
 
 
@@ -628,7 +412,7 @@ CHOOSER
 force-mode
 force-mode
 "Shear" "Tension" "Compression"
-0
+2
 
 SLIDER
 14
@@ -639,7 +423,7 @@ system-temp
 system-temp
 0
 .4
-0.02
+0.1
 .001
 1
 NIL
@@ -654,7 +438,7 @@ f-app
 f-app
 0
 30
-5.9
+8.8
 .1
 1
 N
@@ -667,7 +451,7 @@ SWITCH
 161
 create-dislocation?
 create-dislocation?
-0
+1
 1
 -1000
 
