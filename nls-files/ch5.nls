@@ -2,13 +2,6 @@
 ;; Setup Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
-to ch5.pin-bottom-row
-  ask atoms with-min [ycor] [
-      set pinned? true
-      set shape "circle-X"
-    ]
-end
-
 
 ;;*******************************************************
 ;;**************** Go Procedures ************************

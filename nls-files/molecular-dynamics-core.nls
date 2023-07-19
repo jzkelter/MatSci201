@@ -21,10 +21,10 @@ globals [
   dt
   kb
   
-  LJ-force-offset-singlesig
-  LJ-PE-offset-singlesig
-  LJ-force-offset-multsig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
-  LJ-PE-offset-multsig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
+  LJ-force-offset-1sig
+  LJ-PE-offset-1sig
+  LJ-force-offset-2sig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
+  LJ-PE-offset-2sig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
 ]
 
 
@@ -41,18 +41,18 @@ to mdc.setup-constants
   set cutoff-dist 2.5 * r-min
 end
 
-to mdc.setup-offsets-singlesig
-  let cutoff-PE-and-force mdc.LJ-potential-and-force-wo-offset-singlesig cutoff-dist
-  set LJ-force-offset-singlesig -1 * last cutoff-PE-and-force
-  set LJ-PE-offset-singlesig -1 * first cutoff-PE-and-force
+to mdc.setup-offsets-1sig
+  let cutoff-PE-and-force mdc.LJ-potential-and-force-wo-offset-1sig cutoff-dist
+  set LJ-force-offset-1sig -1 * last cutoff-PE-and-force
+  set LJ-PE-offset-1sig -1 * first cutoff-PE-and-force
 end
 
-to mdc.setup-offsets-multsig
-  set LJ-PE-offset-multsig n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
-  set LJ-force-offset-multsig n-values 41 [0] ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
+to mdc.setup-offsets-2sig
+  set LJ-PE-offset-2sig n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
+  set LJ-force-offset-2sig n-values 41 [0] ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
 
-  set LJ-PE-offset-multsig map  [s -> first mdc.LJ-potential-and-force-multsig cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
-  set LJ-force-offset-multsig map  [s -> last mdc.LJ-potential-and-force-multsig cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
+  set LJ-PE-offset-2sig map  [s -> first mdc.LJ-potential-and-force-2sig cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
+  set LJ-force-offset-2sig map  [s -> last mdc.LJ-potential-and-force-2sig cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
 end
 
 
@@ -66,7 +66,7 @@ to mdc.init-atom
 end
 
 
-to mdc.new-setup-atoms-nrc [natoms-row natoms-column]
+to mdc.setup-atoms-nrc [natoms-row natoms-column]
   let xcenter (min-pxcor + max-pxcor) / 2
   let ycenter (min-pycor + max-pycor) / 2
   
@@ -102,8 +102,8 @@ to mdc.new-setup-atoms-nrc [natoms-row natoms-column]
   ]
 end
 
-to mdc.new-setup-atoms-nrc-rotated [natoms-row natoms-column]
-  mdc.new-setup-atoms-nrc natoms-row natoms-column
+to mdc.setup-atoms-nrc-rotated [natoms-row natoms-column]
+  mdc.setup-atoms-nrc natoms-row natoms-column
   
   let xcenter (min-pxcor + max-pxcor) / 2
   let ycenter (min-pycor + max-pycor) / 2 
@@ -111,70 +111,22 @@ to mdc.new-setup-atoms-nrc-rotated [natoms-row natoms-column]
 end
 
 
-to mdc.setup-atoms-nrc [natoms-row natoms-column]  
-  let x-dist r-min ; the distance between atoms in the x direction
-  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
-
-  let init-xpos (- natoms-row * x-dist / 2)  + 0.4  ;the x position of the first atom
-  let xpos init-xpos
-  let ypos (- natoms-column * y-dist / 2) ;the y position of the first atom
-  let r-num 0 ; row number, starts at 0 for easy modulo division
-  
-  create-atoms natoms-row * natoms-column [ ; setting up the HCP structure
-    mdc.init-atom
-    
-    if xpos >= (natoms-row * x-dist / 2)  [ ; condition for starting new row
-      set r-num r-num + 1
-      set xpos init-xpos + (r-num mod 2) * x-dist / 2
-      set ypos ypos + y-dist
-    ]
-    setxy xpos ypos
-    set xpos xpos + x-dist
-  ]
-end
-
-
-to mdc.new-setup-atoms-natoms [natoms]
+to mdc.setup-atoms-natoms [natoms]
   ; create a square of atoms >= actual natoms
   let l ceiling sqrt(natoms)
-  mdc.new-setup-atoms-nrc l l
+  mdc.setup-atoms-nrc l l
   
   let diff l ^ 2 - natoms
   ask max-n-of diff atoms [xcor + ycor * 10] [die]
 end
 
-to mdc.new-setup-atoms-natoms-rotated [natoms]
+to mdc.setup-atoms-natoms-rotated [natoms]
   ; create a square of atoms >= actual natoms
   let l ceiling sqrt(natoms)
-  mdc.new-setup-atoms-nrc-rotated l l
+  mdc.setup-atoms-nrc-rotated l l
   
   let diff l ^ 2 - natoms
   ask max-n-of diff atoms [xcor * 10 - ycor] [die]
-end
-
-
-to mdc.setup-atoms-natoms [natoms]
-  let l sqrt(natoms) ; the # of atoms in a row
-  
-  let x-dist r-min
-  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
-  
-  let init-xpos (- l * x-dist / 2) + 0.4 ; the x position of the first atom
-  let xpos init-xpos
-  let ypos (- l * y-dist / 2) ; the y position of the first atom
-  let r-num 0  ; row number, starts at 0 for easy modulo division
-  
-  create-atoms natoms [  ; setting up the HCP structure
-    mdc.init-atom
-    
-    if xpos >= (l * x-dist / 2)  [ ; condition to start a new row
-      set r-num r-num + 1
-      set xpos init-xpos + (r-num mod 2) * x-dist / 2
-      set ypos ypos + y-dist
-    ]
-    setxy xpos ypos  ; if we are still in the same row
-    set xpos xpos + x-dist
-  ]
 end
 
 
@@ -196,6 +148,14 @@ end
 
 to-report mdc.overlapping
   report any? other atoms in-radius r-min
+end
+
+
+to mdc.pin-bottom-row
+  ask atoms with-min [ycor] [
+      set pinned? true
+      set shape "circle-X"
+    ]
 end
 
 
@@ -263,7 +223,7 @@ to mdc.move-wraps-off
 end
 
 
-to mdc.update-force-and-velocity-singlesig  ; atom procedure
+to mdc.update-force-and-velocity-1sig  ; atom procedure
   ask atoms [
     let sum-PE 0
     let n-fx 0
@@ -271,7 +231,7 @@ to mdc.update-force-and-velocity-singlesig  ; atom procedure
     ask other atoms in-radius cutoff-dist [
       let r distance myself
       ;; this next line needs to be changed to switch between LJ's
-      let indiv-PE-and-force (mdc.LJ-potential-and-force-singlesig r)
+      let indiv-PE-and-force (mdc.LJ-potential-and-force-1sig r)
       let force last indiv-PE-and-force
       face myself
       rt 180
@@ -290,14 +250,14 @@ to mdc.update-force-and-velocity-singlesig  ; atom procedure
   ]
 end
 
-to mdc.update-force-and-velocity-multsig
+to mdc.update-force-and-velocity-2sig
   ask atoms [    
     let sum-PE 0
     let n-fx 0
     let n-fy 0
     ask other atoms in-radius cutoff-dist [
       let r distance myself
-      let indiv-pot-E-and-force (mdc.LJ-potential-and-force-multsig r sigma [sigma] of myself)
+      let indiv-pot-E-and-force (mdc.LJ-potential-and-force-2sig r sigma [sigma] of myself)
       let force last indiv-pot-E-and-force    
       face myself
       rt 180
@@ -343,7 +303,7 @@ end
 ;; *********      Interaction Procedures      **********
 ;; *****************************************************
 
-to mdc.drag-atoms-with-mouse-singlesig
+to mdc.drag-atoms-with-mouse-1sig
   if mouse-down? [
     let close-atoms atoms with [mdc.distance-to-mouse < 0.5]
     if any? close-atoms [
@@ -352,7 +312,7 @@ to mdc.drag-atoms-with-mouse-singlesig
         let oldy ycor
         setxy mouse-xcor mouse-ycor
         ; this is set for mdc. for now, this is affected by the duplicate LJ
-        ifelse mdc.calc-PE-singlesig > 1 [ ; if energy would be too high, don't let the atom go there.
+        ifelse mdc.calc-PE-1sig > 1 [ ; if energy would be too high, don't let the atom go there.
           setxy oldx oldy
         ] [
           set vx 0
@@ -364,7 +324,7 @@ to mdc.drag-atoms-with-mouse-singlesig
   ]
 end
 
-to mdc.drag-atoms-with-mouse-multsig
+to mdc.drag-atoms-with-mouse-2sig
   if mouse-down? [
     let close-atoms atoms with [mdc.distance-to-mouse < 0.5]
     if any? close-atoms [
@@ -373,7 +333,7 @@ to mdc.drag-atoms-with-mouse-multsig
         let oldy ycor
         setxy mouse-xcor mouse-ycor
         ; this is set for mdc. for now, this is affected by the duplicate LJ
-        ifelse mdc.calc-PE-multsig > 1 [ ; if energy would be too high, don't let the atom go there.
+        ifelse mdc.calc-PE-2sig > 1 [ ; if energy would be too high, don't let the atom go there.
           setxy oldx oldy
         ] [
           set vx 0
@@ -396,33 +356,36 @@ end
 
 ;; this next section is LJ for single sigma
 
-to-report mdc.LJ-potential-and-force-singlesig [r]
-  let PE-and-force mdc.LJ-potential-and-force-wo-offset-singlesig r
-  let potential first PE-and-force + LJ-PE-offset-singlesig
-  let force last PE-and-force + LJ-force-offset-singlesig
+to-report mdc.LJ-potential-and-force-1sig [r]
+  let PE-and-force mdc.LJ-potential-and-force-wo-offset-1sig r
+  let potential first PE-and-force + LJ-PE-offset-1sig
+  let force last PE-and-force + LJ-force-offset-1sig
   report list potential force
 end
 
-to-report mdc.LJ-potential-and-force-wo-offset-singlesig [r]
-  ; should be sigma instead of 1 here once sigma is global
-  let third-power (1 / r) * (1 / r) * (1 / r)
+to-report mdc.LJ-potential-and-force-wo-offset-1sig [r]
+  ; The following is the Lennard-Jones potential and its derivative, just rearranged to optimize calculation speed.
+  ; The unoptimized calculation would look like this:
+  ; let force eps*4 * (-12 * (sigma ^ 12 / r ^ 13) + 6 * (sigma ^ 6 / r ^ 7))
+  ; let potential eps*4 * ((sigma / r) ^ 12 - (sigma / r) ^ 6)
+  let third-power (sigma / r) * (sigma / r) * (sigma / r)
   let sixth-power third-power * third-power
   let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1)
   let potential (eps*4 * (sixth-power * sixth-power - sixth-power))
   report list potential force
 end
 
-to-report mdc.calc-PE-singlesig
+to-report mdc.calc-PE-1sig
   let U 0  ;; U stands for PE
 
   ask other atoms in-radius cutoff-dist [
-    set U U + mdc.calc-pair-PE-with-singlesig myself
+    set U U + mdc.calc-pair-PE-with-1sig myself
   ]
   report U
 end
 
-to-report mdc.calc-pair-PE-with-singlesig [other-atom]
-  let PE-and-force mdc.LJ-potential-and-force-singlesig distance other-atom
+to-report mdc.calc-pair-PE-with-1sig [other-atom]
+  let PE-and-force mdc.LJ-potential-and-force-1sig distance other-atom
   report first PE-and-force
 end
 
@@ -430,7 +393,7 @@ end
 
 ;; this next section is LJ for multiple sigma
 
-to-report mdc.LJ-potential-and-force-multsig [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
+to-report mdc.LJ-potential-and-force-2sig [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
   let sig (sigma1 + sigma2) / 2
   
   ; The following is the Lennard-Jones potential and its derivative, just rearranged to optimize calculation speed.
@@ -439,31 +402,31 @@ to-report mdc.LJ-potential-and-force-multsig [ r sigma1 sigma2] ; for the force,
   ; let potential eps*4 * ((sig / r) ^ 12 - (sig / r) ^ 6)
   let third-power (sig / r) * (sig / r) * (sig / r)
   let sixth-power third-power * third-power
-  let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1) - mdc.find-LJ-force-offset-multsig sig
-  let potential (eps*4 * (sixth-power * sixth-power - sixth-power)) - mdc.find-LJ-PE-offset-multsig sig
+  let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1) - mdc.find-LJ-force-offset-2sig sig
+  let potential (eps*4 * (sixth-power * sixth-power - sixth-power)) - mdc.find-LJ-PE-offset-2sig sig
   report list potential force
 end
 
-to-report mdc.calc-PE-multsig
+to-report mdc.calc-PE-2sig
   let U 0  ;; U stands for PE
 
   ask other atoms in-radius cutoff-dist [
-    set U U + mdc.calc-pair-PE-with-multsig myself
+    set U U + mdc.calc-pair-PE-with-2sig myself
   ]
   report U
 end
 
-to-report mdc.calc-pair-PE-with-multsig [other-atom]
-  let PE-and-force mdc.LJ-potential-and-force-multsig (distance other-atom) sigma  [sigma] of other-atom
+to-report mdc.calc-pair-PE-with-2sig [other-atom]
+  let PE-and-force mdc.LJ-potential-and-force-2sig (distance other-atom) sigma  [sigma] of other-atom
   report first PE-and-force
 end
 
-to-report mdc.find-LJ-force-offset-multsig [sig]
-  report item round (sig / .05) LJ-force-offset-multsig
+to-report mdc.find-LJ-force-offset-2sig [sig]
+  report item round (sig / .05) LJ-force-offset-2sig
 end
 
-to-report mdc.find-LJ-PE-offset-multsig [sig]
-  report item round (sig / .05) LJ-PE-offset-multsig
+to-report mdc.find-LJ-PE-offset-2sig [sig]
+  report item round (sig / .05) LJ-PE-offset-2sig
 end
 
 

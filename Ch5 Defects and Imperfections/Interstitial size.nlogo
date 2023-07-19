@@ -1,4 +1,4 @@
-__includes [ "../nls-files/ch5.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
+__includes [ "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
 
 ;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
@@ -30,14 +30,14 @@ to setup
   mdc.setup-constants
   mdc.setup-atoms-nrc 5 5
   ask atoms [aep.init-atom]
-  ch5.pin-bottom-row
+  mdc.pin-bottom-row
   vab.setup-links
 
   mdc.init-velocity
 
   setup-interstitial
 
-  mdc.setup-offsets-multsig
+  mdc.setup-offsets-2sig
   aep.setup-messages
 
   reset-ticks
@@ -46,7 +46,7 @@ end
 
 to setup-interstitial
   create-atoms 1 [
-    setxy 0.3979209337249389  -0.1689467728642201
+    setxy 0.5612310241546858  0.3240268828732776
     set sigma 0.2
     set mass sigma ^ 2
     set base-color red
@@ -76,7 +76,7 @@ to simulate
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms
 
-  mdc.update-force-and-velocity-multsig
+  mdc.update-force-and-velocity-2sig
   vab.update-atom-color-and-links
   mdc.scale-velocities
   vab.color-links  ; stylizing/coloring links
@@ -86,7 +86,7 @@ to simulate
 end
 
 to interact
-  mdc.drag-atoms-with-mouse-multsig
+  mdc.drag-atoms-with-mouse-2sig
 end
 
 

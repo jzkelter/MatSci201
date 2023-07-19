@@ -1,4 +1,4 @@
-__includes [ "../nls-files/ch5.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
+__includes [ "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
 
 ;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
@@ -28,14 +28,14 @@ to setup
   clear-all
   mdc.setup-constants
 
-  mdc.new-setup-atoms-nrc atoms-per-row atoms-per-column
+  mdc.setup-atoms-nrc atoms-per-row atoms-per-column
   ask atoms [aep.init-atom]
-  ch5.pin-bottom-row
+  mdc.pin-bottom-row
   vab.setup-links
 
   mdc.init-velocity
 
-  mdc.setup-offsets-multsig
+  mdc.setup-offsets-2sig
   aep.setup-messages
 
   reset-ticks
@@ -60,7 +60,7 @@ to simulate
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms
 
-  mdc.update-force-and-velocity-multsig
+  mdc.update-force-and-velocity-2sig
   vab.update-atom-color-and-links
 
   mdc.scale-velocities
@@ -73,7 +73,7 @@ end
 
 to interact
   (ifelse
-    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-multsig]
+    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-2sig]
     click-mode = "delete-atoms" [aep.delete-atoms]
     click-mode = "add-atoms" [aep.add-atoms new-atom-color new-atom-sigma]
     click-mode = "select-atoms" [aep.select-atoms]
