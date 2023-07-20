@@ -26,7 +26,13 @@ globals [
   num-forced-atoms ; number of atoms receiving external force directly
   unpinned-atoms ; atoms that are not pinned
   equalizing-LJ-force ; force to counteract LJ forces in the x-direction (tension)
+  cross-section
 ]
+
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Setup Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;
 
 to init-velocity ; initializes velocity for each atom based on the initial system-temp. Creates a
                  ; random aspect in the velocity split between the x velocity and the y velocity
@@ -42,13 +48,22 @@ to init-velocity ; initializes velocity for each atom based on the initial syste
   ]
 end
 
-
-;;;;;;;;;;;;;;;;;;;;;;
-;; Setup Procedures ;;
-;;;;;;;;;;;;;;;;;;;;;;
-
 to-report positive-or-negative
   report ifelse-value random 2 = 0 [-1] [1]
+end
+
+to setup-cross-section
+  if force-mode = "Tension" [
+    let avg-max mean [ycor] of top-neck-atoms
+    let avg-min mean [ycor] of bottom-neck-atoms
+    set cross-section avg-max - avg-min
+  ]
+end
+
+to setup-auto-increment-force
+  if force-mode = "Tension" and auto-increment-force? [
+    set f-app 0
+  ] 
 end
 
 
@@ -206,6 +221,10 @@ end
 
 to-report strain ; tension only
   report ((right-edge - left-fl) - orig-length) / orig-length
+end
+
+to-report stress ; tension only
+  report (-1 * ((-1 * f-app) + equalizing-LJ-force) / cross-section)
 end
 
 to-report report-indiv-ex-force

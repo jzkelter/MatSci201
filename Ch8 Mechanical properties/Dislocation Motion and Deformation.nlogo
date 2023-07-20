@@ -29,6 +29,8 @@ to setup
   setup-atoms-and-links-and-force-lines
   init-velocity
   update-lattice-view
+  setup-cross-section
+  setup-auto-increment-force
   reset-ticks
 end
 
@@ -206,7 +208,7 @@ to go
     move
   ]
   calculate-fl-positions
-  if force-mode = "Tension" and auto-increment-tension? [ adjust-force ]
+  if force-mode = "Tension" and auto-increment-force? [ adjust-force ]
   identify-force-atoms
   ask atoms [
     update-force-and-velocity-and-links
@@ -252,7 +254,7 @@ to update-force-and-velocity-and-links
     ; adjusting the forces to account for any external applied forces
     let ex-force 0
     if ex-force-applied? [
-     if force-mode = "Tension" and auto-increment-tension? [
+     if force-mode = "Tension" and auto-increment-force? [
         set equalizing-LJ-force equalizing-LJ-force - new-fx
         set new-fx 0
         set new-fy 0
@@ -270,14 +272,6 @@ to update-force-and-velocity-and-links
 
   update-atom-color total-PE
   update-links in-radius-atoms
-end
-
-
-to-report stress ; tension only
-  let avg-max mean [ycor] of top-neck-atoms
-  let avg-min mean [ycor] of bottom-neck-atoms
-  let min-A avg-max - avg-min
-  report (-1 * ((-1 * f-app) + equalizing-LJ-force) / min-A)
 end
 
 
@@ -353,7 +347,7 @@ CHOOSER
 force-mode
 force-mode
 "Shear" "Tension" "Compression"
-2
+1
 
 SLIDER
 14
@@ -379,7 +373,7 @@ f-app
 f-app
 0
 30
-8.8
+4.203
 .1
 1
 N
@@ -656,8 +650,8 @@ SWITCH
 60
 215
 93
-auto-increment-tension?
-auto-increment-tension?
+auto-increment-force?
+auto-increment-force?
 0
 1
 -1000

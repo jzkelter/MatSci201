@@ -15,7 +15,6 @@ atoms-own [
 
 globals [
   system-temp
-  cross-section
   force-mode
 ]
 
@@ -37,11 +36,8 @@ to setup
   setup-atoms-and-links-and-force-lines
   init-velocity
   update-lattice-view
-
-  let avg-max mean [ycor] of top-neck-atoms
-  let avg-min mean [ycor] of bottom-neck-atoms
-  set cross-section avg-max - avg-min
-
+  setup-cross-section
+  setup-auto-increment-force
   reset-ticks
 end
 
@@ -201,7 +197,7 @@ to go
     move
   ]
   calculate-fl-positions
-  if force-mode = "Tension" and auto-increment-tension? [ adjust-force ]
+  if force-mode = "Tension" and auto-increment-force? [ adjust-force ]
   identify-force-atoms
   ask atoms [
     update-force-and-velocity-and-links
@@ -246,7 +242,7 @@ to update-force-and-velocity-and-links
     ; adjusting the forces to account for any external applied forces
     let ex-force 0
     if ex-force-applied? [
-     if force-mode = "Tension" and auto-increment-tension? [
+     if force-mode = "Tension" and auto-increment-force? [
         set equalizing-LJ-force equalizing-LJ-force - new-fx
         set new-fx 0
         set new-fy 0
@@ -264,11 +260,6 @@ to update-force-and-velocity-and-links
 
   update-atom-color total-PE
   update-links in-radius-atoms
-end
-
-
-to-report stress ; tension only
-  report (-1 * ((-1 * f-app) + equalizing-LJ-force) / cross-section)
 end
 
 
@@ -345,7 +336,7 @@ f-app
 f-app
 0
 2
-0.001
+0.7001
 .1
 1
 N
@@ -611,8 +602,8 @@ SWITCH
 165
 215
 198
-auto-increment-tension?
-auto-increment-tension?
+auto-increment-force?
+auto-increment-force?
 0
 1
 -1000
