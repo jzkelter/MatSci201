@@ -34,6 +34,175 @@ globals [
 ;; Setup Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
+to setup-constants
+  set eps .07
+  set sigma .899 ; starts stress-strain curve at about 0
+  set cutoff-dist 5
+  set dt .1
+  set sqrt-2-kb-over-m (1 / 50)
+  set link-check-dist 1.5
+end
+
+to setup-atoms-and-links-and-force-lines
+  ; making a symmetrical sample for tension mode
+  if force-mode = "Tension" and atoms-per-column mod 2 = 0 [
+    set atoms-per-column atoms-per-column + 1
+  ]
+  create-atoms atoms-per-row * atoms-per-column [
+    set shape "circle"
+    set color blue
+    set mass 1
+    set pinned? False
+    set ex-force-applied? False
+  ]
+  let x-dist 1 ; the distance between atoms in the x direction
+  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2) ; the distance between rows
+  let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom
+  let xpos (- atoms-per-row * x-dist / 2) ;the x position of the first atom
+  let row-number 0 ; row number, starts at 0 for easy modulo division
+  ask atoms [ ; setting up the HCP structure
+    if xpos >= (atoms-per-row * x-dist / 2)  [ ; condition for starting new row
+      set row-number row-number + 1
+      set xpos (- atoms-per-row * x-dist / 2) + (row-number mod 2) * x-dist / 2
+      set ypos ypos + y-dist
+    ]
+    setxy xpos ypos
+    set xpos xpos + x-dist
+  ]
+
+  ; values used in assigning atom positions
+  let ymax max [ycor] of atoms
+  let xmax max [xcor] of atoms
+  let y-min min [ycor] of atoms
+  let x-min min [xcor] of atoms
+  let median-xcor (median [xcor] of atoms)
+  set median-ycor (median [ycor] of atoms)
+
+  (ifelse force-mode = "Shear"[
+    ask atoms with [
+      (
+        (xcor = x-min or
+          xcor = x-min + (1 / 2) or
+          xcor = xmax or
+          xcor = xmax - (1 / 2)
+        )
+        and
+        ( ycor < median-ycor)
+      )
+    ] [
+      set pinned? True
+      ]
+    ]
+    force-mode = "Tension"[
+      ask atoms with [xcor = x-min] [die] ; creating the symmetrical shape
+      set x-min min [xcor] of atoms
+      ask atoms with [
+        (ycor >= ymax - 1 or ycor <= y-min + 1) and
+         xcor <= xmax - 2.5 and
+         xcor >= x-min + 2.5
+      ] [ die ]
+
+      ask atoms with [xcor = xmax or xcor = xmax - .5 ] [set pinned? True]
+      ; defining top and bottom neck agentsets
+      set top-neck-atoms atoms with [xcor <= xmax - 3.5 and xcor >= x-min + 3.5] with-max [ycor]
+      set bottom-neck-atoms atoms with [xcor <= xmax - 3.5 and xcor >= x-min + 3.5] with-min [ycor]
+      ask atoms with [ xcor >= x-min and xcor <= x-min + 1 ][
+        set ex-force-applied? True
+        set shape "circle-dot"
+      ]
+      set num-forced-atoms count atoms with [ex-force-applied?]
+    ]
+    force-mode = "Compression" [
+      ask atoms with [xcor = xmax or xcor = xmax - .5 ] [set pinned? True]
+    ]
+  )
+
+  if create-dislocation? = True [ ; creating the dislocation
+    let curr-y-cor median-ycor
+    let curr-x-cor median-xcor
+    let ii 0
+    while [ curr-y-cor <= ceiling (ymax) ] [
+      ask atoms with [
+        ycor <= curr-y-cor + y-dist * .75
+        and ycor >= curr-y-cor ] [
+        (ifelse xcor <= curr-x-cor + x-dist * .75
+          and xcor >= curr-x-cor [ die ]
+          xcor >= curr-x-cor [ set xcor xcor - .05 * ii ]
+          xcor < curr-x-cor [ set xcor xcor + .05 * ii ])
+        ]
+      set curr-y-cor curr-y-cor + y-dist
+      set curr-x-cor curr-x-cor - x-dist / 2
+      set ii ii + 1
+    ]
+   ]
+  
+  ask atoms [
+    let in-radius-atoms (other atoms in-radius cutoff-dist)
+    update-links in-radius-atoms
+  ]
+  ask atom-links [ ; stylizing/coloring links
+    color-links
+  ]
+
+  (ifelse force-mode = "Tension"  [ ; set up force lines
+    create-fl-ends 2
+    set left-fl x-min
+    set right-edge xmax
+    set orig-length right-edge - left-fl
+    ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+      set xcor left-fl
+      set ycor ymax + 2 ]
+    ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+      set xcor left-fl
+      set ycor y-min - 2
+      create-fl-link-with one-of other fl-ends with [xcor = left-fl]]
+    ask fl-ends [
+      set color white
+      set heading 270
+    ]
+    if force-mode = "Tension" [
+      set prev-length orig-length
+    ]
+  ]
+    force-mode = "Compression" [
+      create-fl-ends 2
+      set left-fl x-min
+      set right-edge xmax
+      set orig-length right-edge - left-fl
+      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+        set xcor left-fl
+        set ycor max-pycor - 2 ]
+      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+        set xcor left-fl
+        set ycor min-pycor + 2
+        create-fl-link-with one-of other fl-ends with [xcor = left-fl]]
+      ask fl-ends [
+        set color white
+        set heading 90
+      ]
+    ]
+    force-mode = "Shear" [
+      create-fl-ends 2
+      set upper-left-fl min [xcor] of atoms with [ ycor >= median-ycor ]
+      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+        set xcor upper-left-fl
+        set ycor ymax + 2 ]
+      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+        set xcor upper-left-fl
+        set ycor median-ycor
+        hide-turtle
+        create-fl-link-with one-of other fl-ends]
+      ask fl-ends [
+        set color white
+        set heading 90 ]
+  ])
+  ask fl-links [
+    set color white
+  ]
+  ask atoms with [pinned?] [ set shape "circle-x"]
+  set unpinned-atoms atoms with [not pinned?]
+end
+
 to init-velocity ; initializes velocity for each atom based on the initial system-temp. Creates a
                  ; random aspect in the velocity split between the x velocity and the y velocity
   let speed-avg sqrt-2-kb-over-m * sqrt system-temp
@@ -62,7 +231,7 @@ end
 
 to setup-auto-increment-force
   if force-mode = "Tension" and auto-increment-force? [
-    set f-app 0
+    set force-applied 0
   ] 
 end
 
@@ -128,7 +297,7 @@ to calculate-fl-positions ; (calculate new force line positions)
     set left-fl min [xcor] of atoms
     ask fl-ends with [xcor < 0] [ set xcor left-fl ]
   ]
-  ifelse (f-app + -1 * equalizing-LJ-force) = 0 [
+  ifelse (force-applied + -1 * equalizing-LJ-force) = 0 [
     ask fl-ends [ hide-turtle ]
     ask fl-links [ hide-link ]
   ]
@@ -136,6 +305,15 @@ to calculate-fl-positions ; (calculate new force line positions)
     ask fl-ends [ show-turtle ]
     ask fl-links [ show-link ]
   ]
+end
+
+to adjust-force
+  if precision prev-length 6 >= precision (right-edge - left-fl) 6 [
+    set force-applied precision (force-applied + .0001) 4
+  ]
+  ; increments force-applied-auto if the sample has reached an equilibrium or if the
+  ; previous sample length is greater than the current sample length
+  set prev-length (right-edge - left-fl)
 end
 
 ; find the atoms closest to the force line that will be the ones receiving the external force
@@ -190,10 +368,10 @@ end
 to-report report-new-force
   set shape "circle-dot"
   (ifelse force-mode = "Tension" [
-    report -1 * f-app / num-forced-atoms
+    report -1 * force-applied / num-forced-atoms
     ]
     [ ; Shear and Compression
-      report f-app / num-forced-atoms
+      report force-applied / num-forced-atoms
     ]
   )
 end
@@ -224,15 +402,15 @@ to-report strain ; tension only
 end
 
 to-report stress ; tension only
-  report (-1 * ((-1 * f-app) + equalizing-LJ-force) / cross-section)
+  report (-1 * ((-1 * force-applied) + equalizing-LJ-force) / cross-section)
 end
 
 to-report report-indiv-ex-force
-  report (f-app + -1 * equalizing-LJ-force) / num-forced-atoms
+  report (force-applied + -1 * equalizing-LJ-force) / num-forced-atoms
 end
 
 to-report report-total-ex-force
-  report f-app + -1 * equalizing-LJ-force
+  report force-applied + -1 * equalizing-LJ-force
 end
 
 to color-links

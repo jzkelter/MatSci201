@@ -14,8 +14,10 @@ atoms-own [
 ]
 
 globals [
+  ; these are here because the interface elements don't exist
   system-temp
   force-mode
+  create-dislocation?
 ]
 
 
@@ -27,159 +29,13 @@ to setup
   clear-all
   set force-mode "Tension"
   set system-temp .07
-  set eps .07
-  set sigma .899 ; starts stress-strain curve at about 0
-  set cutoff-dist 5
-  set dt .1
-  set sqrt-2-kb-over-m (1 / 50)
-  set link-check-dist 1.5
+  setup-constants
   setup-atoms-and-links-and-force-lines
   init-velocity
   update-lattice-view
   setup-cross-section
   setup-auto-increment-force
   reset-ticks
-end
-
-to setup-atoms-and-links-and-force-lines
-  ; making a symmetrical sample for tension mode
-  if force-mode = "Tension" and atoms-per-column mod 2 = 0 [
-    set atoms-per-column atoms-per-column + 1
-  ]
-  create-atoms atoms-per-row * atoms-per-column [
-    set shape "circle"
-    set color blue
-    set mass 1
-    set pinned? False
-    set ex-force-applied? False
-  ]
-  let x-dist 1 ; the distance between atoms in the x direction
-  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2) ; the distance between rows
-  let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom
-  let xpos (- atoms-per-row * x-dist / 2) ;the x position of the first atom
-  let row-number 0 ; row number, starts at 0 for easy modulo division
-  ask atoms [ ; setting up the HCP structure
-    if xpos >= (atoms-per-row * x-dist / 2)  [ ; condition for starting new row
-      set row-number row-number + 1
-      set xpos (- atoms-per-row * x-dist / 2) + (row-number mod 2) * x-dist / 2
-      set ypos ypos + y-dist
-    ]
-    setxy xpos ypos
-    set xpos xpos + x-dist
-  ]
-
-  ; values used in assigning atom positions
-  let ymax max [ycor] of atoms
-  let xmax max [xcor] of atoms
-  let y-min min [ycor] of atoms
-  let x-min min [xcor] of atoms
-  let median-xcor (median [xcor] of atoms)
-  set median-ycor (median [ycor] of atoms)
-
-  (ifelse force-mode = "Shear"[
-    ask atoms with [
-      (
-        (xcor = x-min or
-          xcor = x-min + (1 / 2) or
-          xcor = xmax or
-          xcor = xmax - (1 / 2)
-        )
-        and
-        ( ycor < median-ycor)
-      )
-    ] [
-      set pinned? True
-      ]
-    ]
-    force-mode = "Tension"[
-      ask atoms with [xcor = x-min] [die] ; creating the symmetrical shape
-      set x-min min [xcor] of atoms
-      ask atoms with [
-        (ycor >= ymax - 1 or ycor <= y-min + 1) and
-         xcor <= xmax - 2.5 and
-         xcor >= x-min + 2.5
-      ] [ die ]
-
-      ask atoms with [xcor = xmax or xcor = xmax - .5 ] [set pinned? True]
-      ; defining top and bottom neck agentsets
-      set top-neck-atoms atoms with [xcor <= xmax - 3.5 and xcor >= x-min + 3.5] with-max [ycor]
-      set bottom-neck-atoms atoms with [xcor <= xmax - 3.5 and xcor >= x-min + 3.5] with-min [ycor]
-      ask atoms with [ xcor >= x-min and xcor <= x-min + 1 ][
-        set ex-force-applied? True
-        set shape "circle-dot"
-      ]
-      set num-forced-atoms count atoms with [ex-force-applied?]
-    ]
-    force-mode = "Compression" [
-      ask atoms with [xcor = xmax or xcor = xmax - .5 ] [set pinned? True]
-    ]
-  )
-
-  ask atoms [
-    let in-radius-atoms (other atoms in-radius cutoff-dist)
-    update-links in-radius-atoms
-  ]
-  ask atom-links [ ; stylizing/coloring links
-    color-links
-  ]
-
-  (ifelse force-mode = "Tension"  [ ; set up force lines
-    create-fl-ends 2
-    set left-fl x-min
-    set right-edge xmax
-    set orig-length right-edge - left-fl
-    ask one-of fl-ends with [xcor = 0 and ycor = 0] [
-      set xcor left-fl
-      set ycor ymax + 2 ]
-    ask one-of fl-ends with [xcor = 0 and ycor = 0] [
-      set xcor left-fl
-      set ycor y-min - 2
-      create-fl-link-with one-of other fl-ends with [xcor = left-fl]]
-    ask fl-ends [
-      set color white
-      set heading 270
-    ]
-    if force-mode = "Tension" [
-      set prev-length orig-length
-    ]
-  ]
-    force-mode = "Compression" [
-      create-fl-ends 2
-      set left-fl x-min
-      set right-edge xmax
-      set orig-length right-edge - left-fl
-      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
-        set xcor left-fl
-        set ycor max-pycor - 2 ]
-      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
-        set xcor left-fl
-        set ycor min-pycor + 2
-        create-fl-link-with one-of other fl-ends with [xcor = left-fl]]
-      ask fl-ends [
-        set color white
-        set heading 90
-      ]
-    ]
-    force-mode = "Shear" [
-      create-fl-ends 2
-      set upper-left-fl min [xcor] of atoms with [ ycor >= median-ycor ]
-      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
-        set xcor upper-left-fl
-        set ycor ymax + 2 ]
-      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
-        set xcor upper-left-fl
-        set ycor median-ycor
-        hide-turtle
-        create-fl-link-with one-of other fl-ends]
-      ask fl-ends [
-        set color white
-        set heading 90 ]
-  ])
-  ask fl-links [
-    set color white
-  ]
-  ask atoms with [pinned?] [ set shape "circle-x"]
-  set unpinned-atoms atoms with [not pinned?]
 end
 
 
@@ -207,16 +63,6 @@ to go
   ]
   tick-advance dt
   update-plots
-end
-
-
-to adjust-force
-  if precision prev-length 6 >= precision (right-edge - left-fl) 6 [
-    set f-app precision (f-app + .0001) 4
-  ]
-  ; increments f-app-auto if the sample has reached an equilibrium or if the
-  ; previous sample length is greater than the current sample length
-  set prev-length (right-edge - left-fl)
 end
 
 to update-force-and-velocity-and-links
@@ -332,11 +178,11 @@ SLIDER
 205
 172
 238
-f-app
-f-app
+force-applied
+force-applied
 0
 2
-0.7001
+4.0E-4
 .1
 1
 N
@@ -835,6 +681,13 @@ false
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
 
+circle-+
+false
+0
+Circle -7500403 true true 0 0 300
+Rectangle -16777216 true false 0 120 315 165
+Rectangle -16777216 true false 135 -15 180 300
+
 circle-dot
 true
 0
@@ -845,8 +698,8 @@ circle-x
 false
 0
 Circle -7500403 true true 0 0 300
-Rectangle -16777216 true false 0 120 315 165
-Rectangle -16777216 true false 135 -15 180 300
+Polygon -16777216 true false 240 30 30 240 60 270 270 60
+Polygon -16777216 true false 30 60 240 270 270 240 60 30
 
 cow
 false
