@@ -240,6 +240,14 @@ end
 ;; Runtime Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
+to delete-atoms
+  if mouse-down? [
+    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
+      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
+  ]
+  display
+end
+
 to update-lattice-view
   (ifelse lattice-view = "large-atoms" [
     ask atoms [
@@ -270,14 +278,6 @@ to control-temp
       set vy vy * scaling-factor
     ]
   ]
-end
-
-to delete-atoms
-  if mouse-down? [
-    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
-      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
-  ]
-  display
 end
 
 to move  ; atom procedure, uses velocity-verlet algorithm

@@ -11,7 +11,7 @@ atoms-own [
   mass   ; mass of atom
   pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
   ex-force-applied? ; is an external force directly applied to this atom? False if no, True if yes
-  total-PE ; Potential energy of the atom
+  atom-PE ; Potential energy of the atom
 ]
 
 globals [
@@ -111,7 +111,7 @@ to update-force-and-velocity-and-links
     set new-fx new-fx + (force * dx)
     set new-fy new-fy + (force * dy)
   ]
-  set total-PE total-potential-energy
+  set atom-PE total-potential-energy
 
   set new-fy new-fy + ceiling-or-floor-force
 
@@ -135,7 +135,7 @@ to update-force-and-velocity-and-links
     set fy new-fy
   ]
 
-  update-atom-color total-PE
+  update-atom-color atom-PE
   update-links in-radius-atoms
 end
 
