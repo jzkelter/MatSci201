@@ -10,7 +10,7 @@ atoms-own [
   mass   ; mass of atom
   pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
   ex-force-applied? ; is an external force directly applied to this atom? False if no, True if yes
-  total-PE ; Potential energy of the atom
+  atom-PE ; Potential energy of the atom
 ]
 
 
@@ -22,6 +22,7 @@ to setup
   clear-all
   setup-constants
   setup-atoms-and-links-and-force-lines
+  setup-floor-and-ceiling
   init-velocity
   update-lattice-view
   setup-cross-section
@@ -56,49 +57,6 @@ to go
   update-plots
 end
 
-to update-force-and-velocity-and-links
-  let new-fx 0
-  let new-fy 0
-  let total-potential-energy 0
-  let in-radius-atoms other atoms in-radius cutoff-dist
-  ask in-radius-atoms [
-    ; each atom calculates the force it feels from its
-    ; neighboring atoms and sums these forces
-    let r distance myself
-    let indiv-PE-and-force (LJ-potential-and-force r)
-    let force last indiv-PE-and-force
-    set total-potential-energy total-potential-energy + first indiv-PE-and-force
-    face myself
-    rt 180
-    set new-fx new-fx + (force * dx)
-    set new-fy new-fy + (force * dy)
-    ]
-  set total-PE total-potential-energy
-
-  if not pinned? [
-    ; adjusting the forces to account for any external applied forces
-    let ex-force 0
-    if ex-force-applied? [
-     if force-mode = "Tension" and auto-increment-force? [
-        set equalizing-LJ-force equalizing-LJ-force - new-fx
-        set new-fx 0
-        set new-fy 0
-      ]
-      set ex-force report-new-force ]
-    if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
-    set new-fx ex-force + new-fx
-
-    ; updating velocity and force
-    set vx velocity-verlet-velocity vx (fx / mass) (new-fx / mass)
-    set vy velocity-verlet-velocity vy (fy / mass) (new-fy / mass)
-    set fx new-fx
-    set fy new-fy
-  ]
-
-  update-atom-color total-PE
-  update-links in-radius-atoms
-end
-
 
 ; Copyright 2020 Uri Wilensky.
 ; See Info tab for full copyright and license.
@@ -131,10 +89,10 @@ ticks
 30.0
 
 BUTTON
-9
-257
-95
-290
+10
+300
+96
+333
 NIL
 setup
 NIL
@@ -148,10 +106,10 @@ NIL
 1
 
 BUTTON
-103
-257
-188
-290
+104
+300
+189
+333
 NIL
 go
 T
@@ -175,10 +133,10 @@ force-mode
 1
 
 SLIDER
-14
-341
-186
-374
+15
+384
+187
+417
 system-temp
 system-temp
 0
@@ -190,15 +148,15 @@ NIL
 HORIZONTAL
 
 SLIDER
-14
-384
-186
-417
+15
+427
+187
+460
 force-applied
 force-applied
 0
 30
-4.0E-4
+0.0
 .1
 1
 N
@@ -270,30 +228,30 @@ show-horizontal-links?
 -1000
 
 SLIDER
-11
-169
-183
-202
+12
+212
+184
+245
 atoms-per-row
 atoms-per-row
 5
 20
-9.0
+15.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-11
-211
-183
-244
+12
+254
+184
+287
 atoms-per-column
 atoms-per-column
 5
 20
-9.0
+15.0
 1
 1
 NIL
@@ -492,10 +450,10 @@ TEXTBOX
 1
 
 BUTTON
-47
-299
-151
-332
+48
+342
+152
+375
 delete-atoms
 delete-atoms
 T
@@ -507,6 +465,17 @@ NIL
 NIL
 NIL
 0
+
+SWITCH
+10
+170
+192
+203
+create-floor-and-ceiling?
+create-floor-and-ceiling?
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?

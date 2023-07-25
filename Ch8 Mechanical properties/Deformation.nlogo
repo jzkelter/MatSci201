@@ -10,7 +10,7 @@ atoms-own [
   mass   ; mass of atom
   pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
   ex-force-applied? ; is an external force directly applied to this atom? False if no, True if yes
-  total-PE ; Potential energy of the atom
+  atom-PE ; Potential energy of the atom
 ]
 
 globals [
@@ -18,6 +18,7 @@ globals [
   system-temp
   force-mode
   create-dislocation?
+  create-floor-and-ceiling?
 ]
 
 
@@ -31,6 +32,7 @@ to setup
   set system-temp .07
   setup-constants
   setup-atoms-and-links-and-force-lines
+  setup-floor-and-ceiling
   init-velocity
   update-lattice-view
   setup-cross-section
@@ -63,49 +65,6 @@ to go
   ]
   tick-advance dt
   update-plots
-end
-
-to update-force-and-velocity-and-links
-  let new-fx 0
-  let new-fy 0
-  let total-potential-energy 0
-  let in-radius-atoms other atoms in-radius cutoff-dist
-  ask in-radius-atoms [
-    ; each atom calculates the force it feels from its
-    ; neighboring atoms and sums these forces
-    let r distance myself
-    let indiv-PE-and-force (LJ-potential-and-force r)
-    let force last indiv-PE-and-force
-    set total-potential-energy total-potential-energy + first indiv-PE-and-force
-    face myself
-    rt 180
-    set new-fx new-fx + (force * dx)
-    set new-fy new-fy + (force * dy)
-    ]
-  set total-PE total-potential-energy
-
-  if not pinned? [
-    ; adjusting the forces to account for any external applied forces
-    let ex-force 0
-    if ex-force-applied? [
-     if force-mode = "Tension" and auto-increment-force? [
-        set equalizing-LJ-force equalizing-LJ-force - new-fx
-        set new-fx 0
-        set new-fy 0
-      ]
-      set ex-force report-new-force ]
-    if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
-    set new-fx ex-force + new-fx
-
-    ; updating velocity and force
-    set vx velocity-verlet-velocity vx (fx / mass) (new-fx / mass)
-    set vy velocity-verlet-velocity vy (fy / mass) (new-fy / mass)
-    set fx new-fx
-    set fy new-fy
-  ]
-
-  update-atom-color total-PE
-  update-links in-radius-atoms
 end
 
 
