@@ -1,16 +1,19 @@
-__includes [ "../nls-files/ch8.nls" ]
+__includes [ "../nls-files/ch8.nls" "../nls-files/molecular-dynamics-core.nls" ]
 
 breed [atoms atom]
 
 atoms-own [
-  fx     ; x-component of force vector
-  fy     ; y-component of force vector
+  ;; the following variables are for the molecular-dynamics-core.nls file
+  fx     ; x-component of force vector from last time step
+  fy     ; y-component of force vector from last time step
   vx     ; x-component of velocity vector
   vy     ; y-component of velocity vector
   mass   ; mass of atom
-  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
-  ex-force-applied? ; is an external force directly applied to this atom? False if no, True if yes
+  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
   atom-PE ; Potential energy of the atom
+  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
+  base-color  ; display color for the atom when it isn't selected
+  ex-force-applied? ; is an external force directly applied to this atom? False if no, True if yes
 ]
 
 
@@ -65,7 +68,7 @@ GRAPHICS-WINDOW
 220
 10
 888
-679
+519
 -1
 -1
 20.0
@@ -75,13 +78,13 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
+0
 0
 1
 -16
 16
--16
-16
+-12
+12
 1
 1
 1
@@ -137,8 +140,8 @@ SLIDER
 384
 187
 417
-system-temp
-system-temp
+temp
+temp
 0
 .4
 0.07
@@ -156,7 +159,7 @@ force-applied
 force-applied
 0
 30
-0.0
+5.0E-4
 .1
 1
 N
@@ -473,7 +476,7 @@ SWITCH
 203
 create-floor-and-ceiling?
 create-floor-and-ceiling?
-1
+0
 1
 -1000
 
