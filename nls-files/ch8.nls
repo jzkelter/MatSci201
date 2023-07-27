@@ -43,6 +43,7 @@ globals [
 
 to setup-constants
   set dt .1
+  set r-min  2 ^ (1 / 6)
   set eps 0.07
   set cutoff-dist 5
   set sqrt-2-kb-over-m (1 / 50)
