@@ -40,19 +40,19 @@ end
 
 to go
   if lattice-view != prev-lattice-view [ update-lattice-view ]
-  set equalizing-LJ-force 0
+  set auto-increment-force 0
   control-temp
   ask atom-links [ die ]
   ; moving happens before velocity and force update in accordance with velocity verlet
   ask unpinned-atoms [
     move
   ]
-  calculate-fl-positions
-  if force-mode = "Tension" and auto-increment-force? [ adjust-force ]
+  ;if force-mode = "Tension" and auto-increment-force? [ adjust-force ]
   identify-force-atoms
   ask atoms [
     update-force-and-velocity-and-links
   ]
+  calculate-fl-positions
   ask atom-links [ ; stylizing/coloring links
     color-links
   ]
@@ -159,7 +159,7 @@ force-applied
 force-applied
 0
 30
-5.0E-4
+0.0
 .1
 1
 N
@@ -239,7 +239,7 @@ atoms-per-row
 atoms-per-row
 5
 20
-15.0
+12.0
 1
 1
 NIL
@@ -254,7 +254,7 @@ atoms-per-column
 atoms-per-column
 5
 20
-15.0
+13.0
 1
 1
 NIL
