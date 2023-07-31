@@ -235,7 +235,7 @@ to mdc.update-force-and-velocity-1sig  ; atom procedure
       let force last indiv-PE-and-force
       face myself
       rt 180
-      set n-fx n-fx + (force * dx)  ; assuming mass = 1. If not, neeed to divide force by mass to get acceleration
+      set n-fx n-fx + (force * dx)
       set n-fy n-fy + (force * dy)
       set sum-PE sum-PE + first indiv-PE-and-force
     ]
@@ -261,7 +261,7 @@ to mdc.update-force-and-velocity-2sig
       let force last indiv-pot-E-and-force    
       face myself
       rt 180
-      set n-fx n-fx + (force * dx)  ; assuming mass = 1. If not, neeed to divide force by mass to get acceleration
+      set n-fx n-fx + (force * dx)
       set n-fy n-fy + (force * dy)
       set sum-PE sum-PE + first indiv-pot-E-and-force
     ]
@@ -295,6 +295,7 @@ to mdc.scale-velocities
 end
 
 to-report mdc.current-temp
+  ; assuming mass is 1
   report (1 / (2 * Kb)) * mean [vx ^ 2 + vy ^ 2] of atoms with [not pinned?]
 end
 

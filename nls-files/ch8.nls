@@ -319,8 +319,9 @@ to control-temp
 end
 
 to move  ; atom procedure, uses velocity-verlet algorithm
-  set xcor velocity-verlet-pos xcor vx (fx / mass)
-  set ycor velocity-verlet-pos ycor vy (fy / mass)
+  set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
+  set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
+  
   if xcor > max-pxcor or xcor < min-pxcor [
     die ; kills atoms when they move off the world
   ]
@@ -371,9 +372,9 @@ to identify-force-atoms
 end
 
 to update-force-and-velocity-and-links
+  let sum-PE 0
   let new-fx 0
   let new-fy 0
-  let total-potential-energy 0
   let in-radius-atoms other atoms in-radius cutoff-dist
   ask in-radius-atoms [
     ; each atom calculates the force it feels from its
@@ -381,13 +382,13 @@ to update-force-and-velocity-and-links
     let r distance myself
     let indiv-PE-and-force (LJ-potential-and-force r)
     let force last indiv-PE-and-force
-    set total-potential-energy total-potential-energy + first indiv-PE-and-force
+    set sum-PE sum-PE + first indiv-PE-and-force
     face myself
     rt 180
     set new-fx new-fx + (force * dx)
     set new-fy new-fy + (force * dy)
   ]
-  set atom-PE total-potential-energy
+  set atom-PE sum-PE
 
   set new-fy new-fy + ceiling-or-floor-force
 
@@ -396,11 +397,11 @@ to update-force-and-velocity-and-links
     let ex-force 0
     if ex-force-applied? [
       ifelse force-mode = "Tension" and auto-increment-force? [
-        ; 0.005 added to increment the force after zeroing the atoms
-        set auto-increment-force auto-increment-force - new-fx + 0.005
-        set new-fx 0
-        set new-fy 0
-        set ex-force 0.005
+        ; ex-force is enough to cancel out any force plus a little more
+        set ex-force ( - new-fx + 0.001 )
+        ; auto-increment-force reports total ex-force
+        set auto-increment-force auto-increment-force + ex-force
+        ; set new-fy 0
       ]
       [ 
         set shape "circle-dot"
@@ -411,8 +412,8 @@ to update-force-and-velocity-and-links
     set new-fx ex-force + new-fx
 
     ; updating velocity and force
-    set vx velocity-verlet-velocity vx (fx / mass) (new-fx / mass)
-    set vy velocity-verlet-velocity vy (fy / mass) (new-fy / mass)
+    set vx mdc.velocity-verlet-velocity vx (fx / mass) (new-fx / mass)
+    set vy mdc.velocity-verlet-velocity vy (fy / mass) (new-fy / mass)
     set fx new-fx
     set fy new-fy
   ]
@@ -477,14 +478,6 @@ to-report LJ-potential-and-force [ r ] ; for the force, positive = attractive, n
   let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) + .0001
   let potential (4 * eps * (twelfth-power - sixth-power)) + .00001
   report list potential force
-end
-
-to-report velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
-  report pos + v * dt + (1 / 2) * a * (dt ^ 2)
-end
-
-to-report velocity-verlet-velocity [v a new-a]  ; velocity, acceleration, new acceleration
-  report v + (1 / 2) * (new-a + a) * dt
 end
 
 to set-color [v]
