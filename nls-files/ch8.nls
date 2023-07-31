@@ -363,7 +363,6 @@ to update-force-and-velocity-and-links
         set ex-force ( - new-fx + 0.001 )
         ; auto-increment-force reports total ex-force
         set auto-increment-force auto-increment-force + ex-force
-        ; set new-fy 0
       ]
       [ 
         set shape "circle-dot"
