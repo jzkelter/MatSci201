@@ -159,7 +159,7 @@ force-applied
 force-applied
 0
 30
-0.0
+6.1
 .1
 1
 N
@@ -438,7 +438,7 @@ SWITCH
 93
 auto-increment-force?
 auto-increment-force?
-0
+1
 1
 -1000
 
