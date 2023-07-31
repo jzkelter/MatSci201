@@ -222,6 +222,10 @@ to mdc.move-wraps-off
   ]
 end
 
+to mdc.move-atoms-wraps-off-die
+  
+end
+
 
 to mdc.update-force-and-velocity-1sig  ; atom procedure
   ask atoms [
