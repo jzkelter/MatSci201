@@ -44,9 +44,7 @@ to go
   control-temp
   ask atom-links [ die ]
   ; moving happens before velocity and force update in accordance with velocity verlet
-  ask unpinned-atoms [
-    move
-  ]
+  move
   ;if force-mode = "Tension" and auto-increment-force? [ adjust-force ]
   identify-force-atoms
   ask atoms [
@@ -159,7 +157,7 @@ force-applied
 force-applied
 0
 30
-6.1
+0.0
 .1
 1
 N
@@ -438,7 +436,7 @@ SWITCH
 93
 auto-increment-force?
 auto-increment-force?
-1
+0
 1
 -1000
 

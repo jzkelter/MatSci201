@@ -319,11 +319,13 @@ to control-temp
 end
 
 to move  ; atom procedure, uses velocity-verlet algorithm
-  set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
-  set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
-  
-  if xcor > max-pxcor or xcor < min-pxcor [
-    die ; kills atoms when they move off the world
+  ask unpinned-atoms [
+    set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
+    set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
+    
+    if xcor > max-pxcor or xcor < min-pxcor [
+      die ; kills atoms when they move off the world
+    ]
   ]
 end
 
