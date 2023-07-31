@@ -19,7 +19,6 @@ globals [
   bottom-neck-atoms ; agentset of atoms on the bottom of the neck (thin region) (tension).
                     ; Used in calculating stress
   num-forced-atoms ; number of atoms receiving external force directly
-  unpinned-atoms ; atoms that are not pinned
   auto-increment-force ; force to counteract LJ forces in the x-direction (tension)
   cross-section
   ceiling-ycor
@@ -205,7 +204,6 @@ to setup-atoms-and-links-and-force-lines
     set color white
   ]
   ask atoms with [pinned?] [ set shape "circle-x"]
-  set unpinned-atoms atoms with [not pinned?]
 end
 
 to setup-floor-and-ceiling
@@ -238,16 +236,6 @@ to setup-floor-and-ceiling
         ]
       ]
     ]
-  ]
-end
-
-to init-velocity ; initializes velocity for each atom based on the initial temp. Creates a
-                 ; random aspect in the velocity split between the x velocity and the y velocity
-  ask unpinned-atoms [
-    let v-avg sqrt (2 * temp * Kb / mass)
-    let a random-float 1  ; a random amount of the total velocity to go the x direction
-    set vx sqrt (a * v-avg ^ 2) * mdc.positive-or-negative
-    set vy sqrt ( v-avg ^ 2 - vx ^ 2)  * mdc.positive-or-negative
   ]
 end
 
@@ -299,34 +287,6 @@ to update-lattice-view
       ask atoms [ hide-turtle ]
   ])
   set prev-lattice-view lattice-view
-end
-
-; this heats or cools the system based on the average temperature of the system compared to the set temp
-to control-temp
-  let ctemp (1 / (2 * Kb)) * mean [vx ^ 2 + vy ^ 2] of unpinned-atoms
-  (ifelse
-    ctemp = 0 and temp != 0 [
-      ask atoms [init-velocity]
-    ]
-    ctemp != 0 [
-      let scale-factor sqrt( temp / ctemp )  ; if "external" temperature is higher atoms will speed up and vice versa
-      ask unpinned-atoms [
-        set vx vx * scale-factor
-        set vy vy * scale-factor
-      ]
-    ]
-  )
-end
-
-to move  ; atom procedure, uses velocity-verlet algorithm
-  ask unpinned-atoms [
-    set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
-    set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
-    
-    if xcor > max-pxcor or xcor < min-pxcor [
-      die ; kills atoms when they move off the world
-    ]
-  ]
 end
 
 to calculate-fl-positions ; (calculate new force line positions)
@@ -390,7 +350,7 @@ to update-force-and-velocity-and-links
     set new-fx new-fx + (force * dx)
     set new-fy new-fy + (force * dy)
   ]
-  set atom-PE sum-PE
+  set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
 
   set new-fy new-fy + ceiling-or-floor-force
 

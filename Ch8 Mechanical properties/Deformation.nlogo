@@ -37,7 +37,7 @@ to setup
   setup-constants
   setup-atoms-and-links-and-force-lines
   setup-floor-and-ceiling
-  init-velocity
+  mdc.init-velocity
   update-lattice-view
   setup-cross-section
   setup-auto-increment-force
@@ -52,16 +52,14 @@ end
 to go
   if lattice-view != prev-lattice-view [ update-lattice-view ]
   set auto-increment-force 0
-  control-temp
   ask atom-links [ die ]
   ; moving happens before velocity and force update in accordance with velocity verlet
-  ask unpinned-atoms [
-    move
-  ]
+  mdc.move-atoms-wraps-off-die
   identify-force-atoms
   ask atoms [
     update-force-and-velocity-and-links
   ]
+  mdc.scale-velocities
   calculate-fl-positions
   ask atom-links [ ; stylizing/coloring links
     color-links

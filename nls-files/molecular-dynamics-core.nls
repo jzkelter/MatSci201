@@ -223,7 +223,14 @@ to mdc.move-wraps-off
 end
 
 to mdc.move-atoms-wraps-off-die
-  
+  ask atoms with [not pinned?] [
+    set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
+    set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
+    
+    if xcor > max-pxcor or xcor < min-pxcor [
+      die ; kills atoms when they move off the world
+    ]
+  ]
 end
 
 
@@ -282,6 +289,7 @@ to mdc.update-force-and-velocity-2sig
 end
 
 
+; this heats or cools the system based on the average temperature of the system compared to the set temp
 to mdc.scale-velocities
   let ctemp mdc.current-temp
   (ifelse
