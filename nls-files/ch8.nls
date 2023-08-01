@@ -51,6 +51,9 @@ to setup-tension-col
 end
 
 to setup-force-mode-shape-and-pinned
+  let x-dist r-min ; the distance between atoms in the x direction
+  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+  
   ; values used in assigning atom positions
   let ymax max [ycor] of atoms
   let xmax max [xcor] of atoms
@@ -59,16 +62,16 @@ to setup-force-mode-shape-and-pinned
 
   
   (ifelse force-mode = "Shear"[
-    set unpinned-min-ycor y-min + 3
+    set unpinned-min-ycor y-min + 4 * y-dist
     ask atoms with [
       (
         (xcor = x-min or
-          xcor = x-min + (1 / 2) or
+          xcor = x-min + (x-dist / 2) or
           xcor = xmax or
-          xcor = xmax - (1 / 2)
+          xcor = xmax - (x-dist / 2)
         )
         and
-        ( ycor < unpinned-min-ycor)
+        ( ycor < unpinned-min-ycor - y-dist)
       )
     ] [
       set pinned? True
@@ -77,24 +80,25 @@ to setup-force-mode-shape-and-pinned
     force-mode = "Tension"[
       ask atoms with [xcor = x-min] [die] ; creating the symmetrical shape
       set x-min min [xcor] of atoms
+      ; deleting a rectangular area of atoms to create the tension shape
       ask atoms with [
-        (ycor >= ymax - 1 or ycor <= y-min + 1) and
+        (ycor >= ymax - 1.25 or ycor <= y-min + 1.25) and
          xcor <= xmax - 2.5 and
          xcor >= x-min + 2.5
       ] [ die ]
 
-      ask atoms with [xcor = x-min or xcor = x-min + .5 ] [set pinned? True]
+      ask atoms with [xcor = x-min or xcor = x-min + (x-dist / 2) ] [set pinned? True]
       ; defining top and bottom neck agentsets
-      set top-neck-atoms atoms with [xcor <= xmax - 3.5 and xcor >= x-min + 3.5] with-max [ycor]
-      set bottom-neck-atoms atoms with [xcor <= xmax - 3.5 and xcor >= x-min + 3.5] with-min [ycor]
-      ask atoms with [ xcor <= xmax and xcor >= xmax - 1.5 ][
+      set top-neck-atoms atoms with [xcor <= xmax - (x-dist * 2.5) and xcor >= (x-dist * 2.5)] with-max [ycor]
+      set bottom-neck-atoms atoms with [xcor <= xmax - (x-dist * 2.5) and xcor >= (x-dist * 2.5)] with-min [ycor]
+      ask atoms with [ xcor <= xmax and xcor >= xmax - (x-dist * 1.5) ][
         set ex-force-applied? True
         set shape "circle-dot"
       ]
       set num-forced-atoms count atoms with [ex-force-applied?]
     ]
     force-mode = "Compression" [
-      ask atoms with [xcor = xmax or xcor = xmax - .5 ] [set pinned? True]
+      ask atoms with [xcor = xmax or xcor = xmax - (x-dist / 2) ] [set pinned? True]
     ]
   )
   
@@ -131,6 +135,9 @@ to setup-dislocation
 end
 
 to setup-force-lines
+  let x-dist r-min ; the distance between atoms in the x direction
+  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+  
   ; values used in assigning atom positions
   let ymax max [ycor] of atoms
   let xmax max [xcor] of atoms
@@ -144,10 +151,10 @@ to setup-force-lines
     set orig-length right-fl - left-edge
     ask one-of fl-ends with [xcor = 0 and ycor = 0] [
       set xcor right-fl
-      set ycor ymax + 2 ]
+      set ycor ymax + (y-dist * 2) ]
     ask one-of fl-ends with [xcor = 0 and ycor = 0] [
       set xcor right-fl
-      set ycor y-min - 2
+      set ycor y-min - (y-dist * 2)
       create-fl-link-with one-of other fl-ends with [xcor = right-fl]]
     ask fl-ends [
       set color white
@@ -164,10 +171,10 @@ to setup-force-lines
       set orig-length right-edge - left-fl
       ask one-of fl-ends with [xcor = 0 and ycor = 0] [
         set xcor left-fl
-        set ycor max-pycor - 2 ]
+        set ycor max-pycor - (y-dist * 2) ]
       ask one-of fl-ends with [xcor = 0 and ycor = 0] [
         set xcor left-fl
-        set ycor min-pycor + 2
+        set ycor min-pycor + (y-dist * 2)
         create-fl-link-with one-of other fl-ends with [xcor = left-fl]]
       ask fl-ends [
         set color white
@@ -179,7 +186,7 @@ to setup-force-lines
       set upper-left-fl min [xcor] of atoms with [ ycor >= unpinned-min-ycor ]
       ask one-of fl-ends with [xcor = 0 and ycor = 0] [
         set xcor upper-left-fl
-        set ycor ymax + 2 ]
+        set ycor ymax + (y-dist * 2) ]
       ask one-of fl-ends with [xcor = 0 and ycor = 0] [
         set xcor upper-left-fl
         set ycor unpinned-min-ycor
@@ -198,9 +205,8 @@ end
 
 to setup-floor-and-ceiling
   if create-floor-and-ceiling? = True [
-    let min-r 1
-    set ceiling-ycor max [ycor] of atoms + min-r
-    set floor-ycor min [ycor] of atoms - min-r
+    set ceiling-ycor max [ycor] of atoms + r-min
+    set floor-ycor min [ycor] of atoms - r-min
     
     crt 1 [
       set xcor min-pxcor
