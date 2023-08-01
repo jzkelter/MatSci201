@@ -1,4 +1,4 @@
-__includes [ "../nls-files/ch8.nls" "../nls-files/molecular-dynamics-core.nls" ]
+__includes [ "../nls-files/ch8.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
 
 breed [atoms atom]
 
@@ -13,6 +13,7 @@ atoms-own [
   atom-PE ; Potential energy of the atom
   pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
   base-color  ; display color for the atom when it isn't selected
+
   ex-force-applied? ; is an external force directly applied to this atom? False if no, True if yes
 ]
 
@@ -24,10 +25,19 @@ atoms-own [
 to setup
   clear-all
   setup-constants
-  setup-atoms-and-links-and-force-lines
-  setup-floor-and-ceiling
-  mdc.init-velocity
+  setup-tension-col
+  mdc.setup-atoms-nrc atoms-per-row atoms-per-column
+  ask atoms [ch8.init-atom]
+  setup-force-mode-shape-and-pinned
   update-lattice-view
+  mdc.init-velocity
+
+  vab.setup-links
+
+  setup-dislocation
+  setup-force-lines
+  setup-floor-and-ceiling
+
   setup-cross-section
   setup-auto-increment-force
   reset-ticks
@@ -43,17 +53,15 @@ to go
   set auto-increment-force 0
   ask atom-links [ die ]
   ; moving happens before velocity and force update in accordance with velocity verlet
-  mdc.move-atoms-wraps-off-die
-  ;if force-mode = "Tension" and auto-increment-force? [ adjust-force ]
+  mdc.move-atoms-die-at-edge
   identify-force-atoms
   ask atoms [
-    update-force-and-velocity-and-links
+    update-force-and-velocity
   ]
- mdc.scale-velocities
+  mdc.scale-velocities
+  vab.update-atom-color-and-links
   calculate-fl-positions
-  ask atom-links [ ; stylizing/coloring links
-    color-links
-  ]
+  vab.color-links  ; stylizing/coloring links
   tick-advance dt
   update-plots
 end
@@ -179,8 +187,8 @@ SWITCH
 65
 1125
 98
-update-atom-color?
-update-atom-color?
+color-atoms-by-potential-energy?
+color-atoms-by-potential-energy?
 1
 1
 -1000
@@ -474,7 +482,7 @@ SWITCH
 203
 create-floor-and-ceiling?
 create-floor-and-ceiling?
-0
+1
 1
 -1000
 

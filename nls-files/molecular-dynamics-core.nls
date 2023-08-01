@@ -14,7 +14,6 @@
 
 
 globals [
-  r-min
   eps
   eps*4
   cutoff-dist
@@ -35,10 +34,15 @@ globals [
 to mdc.setup-constants
   set dt .01
   set kb 0.1 ; just picking a random constant for Kb that makes things work reasonably
-  set r-min  2 ^ (1 / 6)
   set eps 1
   set eps*4 eps * 4
   set cutoff-dist 2.5 * r-min
+end
+
+to-report r-min
+  ; this is calculated by taking the derivative of the Lennard-Jones potential with sigma = 1,
+  ; setting it equal to zero and solving for r
+  report 2 ^ (1 / 6)
 end
 
 to mdc.setup-offsets-1sig
@@ -222,12 +226,12 @@ to mdc.move-wraps-off
   ]
 end
 
-to mdc.move-atoms-wraps-off-die
+to mdc.move-atoms-die-at-edge
   ask atoms with [not pinned?] [
     set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
     set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
     
-    if xcor > max-pxcor or xcor < min-pxcor [
+    if xcor > max-pxcor or xcor < min-pxcor or ycor > max-pycor or ycor < min-pycor [
       die ; kills atoms when they move off the world
     ]
   ]

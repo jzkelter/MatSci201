@@ -29,11 +29,11 @@ to setup
   mdc.setup-constants
 
   mdc.setup-atoms-nrc atoms-per-row atoms-per-column
-  ask atoms [aep.init-atom]
   mdc.pin-bottom-row
-  vab.setup-links
-
+  ask atoms [aep.init-atom]
   mdc.init-velocity
+
+  vab.setup-links
 
   mdc.setup-offsets-2sig
   aep.setup-messages

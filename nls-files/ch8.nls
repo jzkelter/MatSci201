@@ -1,10 +1,8 @@
 breed [fl-ends fl-end] ; turtles at the ends of the force lines, point in direction the force is acting
 undirected-link-breed [fl-links fl-link] ; force line links
-undirected-link-breed [atom-links atom-link] ; links between atoms
 undirected-link-breed [wall-links wall-link] ; force line links
 
 globals [
-  link-check-dist ; each atom links with neighbors within this distance
   prev-lattice-view ; the lattice view in the previous time step
   upper-left-fl ; upper left force line - shear
   left-fl ; left force line - compression
@@ -40,47 +38,26 @@ globals [
 
 to setup-constants
   set dt .1
-  set r-min  2 ^ (1 / 6)
-  set eps 0.07
-  set cutoff-dist 5
   set kb 0.0002 ; this is a very small number right now
-  set link-check-dist 1.5
+  set eps 0.07
+  set cutoff-dist 2.5 * r-min
 end
 
-to setup-atoms-and-links-and-force-lines
+to setup-tension-col
   ; making a symmetrical sample for tension mode
   if force-mode = "Tension" and atoms-per-column mod 2 = 0 [
     set atoms-per-column atoms-per-column + 1
   ]
-  create-atoms atoms-per-row * atoms-per-column [
-    set shape "circle"
-    set color blue
-    set mass 1
-    set sigma .899 ; starts stress-strain curve at about 0
-    set pinned? False
-    set ex-force-applied? False
-  ]
-  let x-dist 1 ; the distance between atoms in the x direction
-  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2) ; the distance between rows
-  let ypos (- atoms-per-column * y-dist / 2) ;the y position of the first atom
-  let xpos (- atoms-per-row * x-dist / 2) ;the x position of the first atom
-  let row-number 0 ; row number, starts at 0 for easy modulo division
-  ask atoms [ ; setting up the HCP structure
-    if xpos >= (atoms-per-row * x-dist / 2)  [ ; condition for starting new row
-      set row-number row-number + 1
-      set xpos (- atoms-per-row * x-dist / 2) + (row-number mod 2) * x-dist / 2
-      set ypos ypos + y-dist
-    ]
-    setxy xpos ypos
-    set xpos xpos + x-dist
-  ]
+end
 
+to setup-force-mode-shape-and-pinned
   ; values used in assigning atom positions
   let ymax max [ycor] of atoms
   let xmax max [xcor] of atoms
   let y-min min [ycor] of atoms
   let x-min min [xcor] of atoms
 
+  
   (ifelse force-mode = "Shear"[
     set unpinned-min-ycor y-min + 3
     ask atoms with [
@@ -120,34 +97,46 @@ to setup-atoms-and-links-and-force-lines
       ask atoms with [xcor = xmax or xcor = xmax - .5 ] [set pinned? True]
     ]
   )
+  
+  ask atoms with [pinned?] [ set shape "circle-x"]
+end
 
+to ch8.init-atom
+  set ex-force-applied? false
+end
+
+to setup-dislocation
+  ; this needs to be changed
+  
+  let x-dist r-min ; the distance between atoms in the x direction
+  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+  
   if create-dislocation? = True [ ; creating the dislocation
-    let median-xcor (median [xcor] of atoms)
-    let median-ycor (median [ycor] of atoms)
+    let dis-xcor (median [xcor] of atoms)
+    let dis-ycor (median [ycor] of atoms)
     let ii 0
-    while [ median-ycor <= ceiling (ymax) ] [
-      ask atoms with [
-        ycor <= median-ycor + y-dist * .75
-        and ycor >= median-ycor ] [
-        (ifelse xcor <= median-xcor + x-dist * .75
-          and xcor >= median-xcor [ die ]
-          xcor >= median-xcor [ set xcor xcor - .05 * ii ]
-          xcor < median-xcor [ set xcor xcor + .05 * ii ])
-        ]
-      set median-ycor median-ycor + y-dist
-      set median-xcor median-xcor - x-dist / 2
+    while [ dis-ycor <= ceiling (max [ycor] of atoms) ] [
+      ask atoms with [ ( ycor <= dis-ycor + y-dist * .75 ) and ( ycor >= dis-ycor ) ] [
+        (ifelse ( xcor <= dis-xcor + x-dist * .75 ) and ( xcor >= dis-xcor ) [ die ]
+          xcor >= dis-xcor [ set xcor xcor - .05 * ii ]
+          xcor < dis-xcor [ set xcor xcor + .05 * ii ]
+        )
+      ]
+      
+      set dis-ycor dis-ycor + y-dist
+      set dis-xcor dis-xcor - x-dist / 2
       set ii ii + 1
     ]
    ]
-  
-  ask atoms [
-    let in-radius-atoms (other atoms in-radius cutoff-dist)
-    update-links in-radius-atoms
-  ]
-  ask atom-links [ ; stylizing/coloring links
-    color-links
-  ]
+end
 
+to setup-force-lines
+  ; values used in assigning atom positions
+  let ymax max [ycor] of atoms
+  let xmax max [xcor] of atoms
+  let y-min min [ycor] of atoms
+  let x-min min [xcor] of atoms
+  
   (ifelse force-mode = "Tension"  [ ; set up force lines
     create-fl-ends 2
     set right-fl xmax
@@ -203,8 +192,9 @@ to setup-atoms-and-links-and-force-lines
   ask fl-links [
     set color white
   ]
-  ask atoms with [pinned?] [ set shape "circle-x"]
 end
+
+
 
 to setup-floor-and-ceiling
   if create-floor-and-ceiling? = True [
@@ -333,7 +323,7 @@ to identify-force-atoms
   ]) ; for tension, the same atoms in the left shoulder of the sample always receive the force
 end
 
-to update-force-and-velocity-and-links
+to update-force-and-velocity
   let sum-PE 0
   let new-fx 0
   let new-fy 0
@@ -378,38 +368,6 @@ to update-force-and-velocity-and-links
     set fx new-fx
     set fy new-fy
   ]
-
-  update-atom-color atom-PE
-  update-links in-radius-atoms
-end
-
-to update-atom-color [total-force] ; updating atom color
-  (ifelse update-atom-color? [
-    set-color total-force
-  ]
-   [ set color blue ])
-end
-
-to update-links [in-radius-atoms] ; updating links
-  if show-diagonal-right-links? [
-    set heading 330
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-  if show-diagonal-left-links? [
-    set heading 30
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-  if show-horizontal-links? [
-    set heading 90
-    link-with-atoms-in-cone in-radius-atoms
-  ]
-end
-
-to link-with-atoms-in-cone [atom-set]
-  let in-cone-atoms (atom-set in-cone link-check-dist 60)
-    if any? in-cone-atoms [
-      create-atom-link-with min-one-of in-cone-atoms [distance myself]
-    ]
 end
 
 to-report ceiling-or-floor-force
@@ -459,21 +417,4 @@ end
 
 to-report report-total-ex-force
   report force-applied + auto-increment-force
-end
-
-to color-links
-  set thickness .25 ; necessary because the links die and reform every tick
-  let min-eq-bond-len .991
-  let max-eq-bond-len 1.00907
-  (ifelse
-    link-length < min-eq-bond-len [
-      let tmp-len sqrt(min-eq-bond-len - link-length)
-      let tmp-color extract-rgb scale-color red tmp-len 1 -.2
-      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30) ]
-    link-length > max-eq-bond-len [
-      let tmp-len sqrt (link-length - max-eq-bond-len)
-      let tmp-color extract-rgb scale-color yellow tmp-len 1 -.2
-      set color insert-item 3 tmp-color (125 + (1 + tmp-len) * 30)]
-    [ let tmp-color extract-rgb white
-      set color insert-item 3 tmp-color 125 ])
 end

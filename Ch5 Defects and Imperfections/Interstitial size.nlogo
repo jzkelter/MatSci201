@@ -29,11 +29,11 @@ to setup
   set-default-shape turtles "circle"
   mdc.setup-constants
   mdc.setup-atoms-nrc 5 5
-  ask atoms [aep.init-atom]
   mdc.pin-bottom-row
-  vab.setup-links
-
+  ask atoms [aep.init-atom]
   mdc.init-velocity
+
+  vab.setup-links
 
   setup-interstitial
 
@@ -174,7 +174,7 @@ temp
 temp
 0
 .4
-0.02
+0.03
 .01
 1
 NIL
