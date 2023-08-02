@@ -74,8 +74,11 @@ to setup-force-mode-shape-and-pinned
         ( ycor <= unpinned-min-ycor - y-dist)
       )
     ] [
-      set pinned? True
+      set pinned? true
       ]
+    ask atoms with-min [ycor] [
+      set pinned? true
+    ]
     ]
     force-mode = "Tension"[
       ask atoms with [xcor = x-min] [die] ; creating the symmetrical shape
@@ -87,15 +90,15 @@ to setup-force-mode-shape-and-pinned
          xcor >= x-min + 2.5
       ] [ die ]
 
-      ask atoms with [xcor = x-min or xcor = x-min + (x-dist / 2) ] [set pinned? True]
+      ask atoms with [xcor = x-min or xcor = x-min + (x-dist / 2) ] [set pinned? true]
       ask atoms with [ xcor <= xmax and xcor >= xmax - (x-dist * 1.5) ][
-        set ex-force-applied? True
+        set ex-force-applied? true
         set shape "circle-dot"
       ]
       set num-forced-atoms count atoms with [ex-force-applied?]
     ]
     force-mode = "Compression" [
-      ask atoms with [xcor = xmax or xcor = xmax - (x-dist / 2) ] [set pinned? True]
+      ask atoms with [xcor = xmax or xcor = xmax - (x-dist / 2) ] [set pinned? true]
     ]
   )
   
@@ -112,7 +115,7 @@ to setup-dislocation
   let x-dist r-min ; the distance between atoms in the x direction
   let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
   
-  if create-dislocation? = True [ ; creating the dislocation
+  if create-dislocation? = true [ ; creating the dislocation
     let dis-xcor (median [xcor] of atoms)
     let dis-ycor (median [ycor] of atoms)
     let ii 0
@@ -201,7 +204,7 @@ end
 
 
 to setup-floor-and-ceiling
-  if create-floor-and-ceiling? = True [
+  if create-floor-and-ceiling? = true [
     set ceiling-ycor max [ycor] of atoms + r-min
     set floor-ycor min [ycor] of atoms - r-min
     
@@ -310,26 +313,25 @@ end
 ; find the atoms closest to the force line that will be the ones receiving the external force
 to identify-force-atoms
   (ifelse force-mode = "Shear" [
-    ask atoms [ set ex-force-applied?  False ]
+    ask atoms [ set ex-force-applied?  false ]
     let forced-atoms atoms with [ ycor >= unpinned-min-ycor and (distancexy upper-left-fl ycor) <= r-min]
     set num-forced-atoms count forced-atoms
     ask forced-atoms [
-      set ex-force-applied?  True
+      set ex-force-applied?  true
     ]
     ]
     force-mode = "Compression" [
-      ask atoms [ set ex-force-applied?  False ]
+      ask atoms [ set ex-force-applied?  false ]
       let forced-atoms atoms with [ (distancexy left-fl ycor) <= r-min]
       set num-forced-atoms count forced-atoms
       ask forced-atoms [
-        set ex-force-applied?  True
+        set ex-force-applied?  true
     ]
   ]) ; for tension, the same atoms in the left shoulder of the sample always receive the force
 end
 
 to update-force-and-velocity
   ask atoms [
-    
     let sum-PE 0
     let new-fx 0
     let new-fy 0
@@ -356,8 +358,9 @@ to update-force-and-velocity
         ifelse force-mode = "Tension" and auto-increment-force? [
           ; ex-force is enough to cancel out any force plus a little more
           set ex-force ( - new-fx + 0.001 )
-          ; auto-increment-force reports total ex-force
-          set auto-increment-force auto-increment-force + ex-force
+          ; auto-increment-force reports total ex-force offset in x direction, and force offset in y-direction
+          set auto-increment-force auto-increment-force + ex-force - new-fy
+          set new-fy 0
         ]
         [ 
           set shape "circle-dot"
@@ -377,7 +380,7 @@ to update-force-and-velocity
 end
 
 to-report ceiling-or-floor-force
-  ifelse create-floor-and-ceiling? = True [
+  ifelse create-floor-and-ceiling? = true [
     ;; apply force in y-direction due to floor and ceiling
     let f 0
     (ifelse
