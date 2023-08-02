@@ -71,7 +71,7 @@ to setup-force-mode-shape-and-pinned
           xcor = xmax - (x-dist / 2)
         )
         and
-        ( ycor < unpinned-min-ycor - y-dist)
+        ( ycor <= unpinned-min-ycor - y-dist)
       )
     ] [
       set pinned? True
@@ -313,7 +313,7 @@ end
 to identify-force-atoms
   (ifelse force-mode = "Shear" [
     ask atoms [ set ex-force-applied?  False ]
-    let forced-atoms atoms with [ ycor >= unpinned-min-ycor and (distancexy upper-left-fl ycor) <= 1]
+    let forced-atoms atoms with [ ycor >= unpinned-min-ycor and (distancexy upper-left-fl ycor) <= r-min]
     set num-forced-atoms count forced-atoms
     ask forced-atoms [
       set ex-force-applied?  True
@@ -321,7 +321,7 @@ to identify-force-atoms
     ]
     force-mode = "Compression" [
       ask atoms [ set ex-force-applied?  False ]
-      let forced-atoms atoms with [ (distancexy left-fl ycor) <= 1]
+      let forced-atoms atoms with [ (distancexy left-fl ycor) <= r-min]
       set num-forced-atoms count forced-atoms
       ask forced-atoms [
         set ex-force-applied?  True
@@ -330,49 +330,51 @@ to identify-force-atoms
 end
 
 to update-force-and-velocity
-  let sum-PE 0
-  let new-fx 0
-  let new-fy 0
-  let in-radius-atoms other atoms in-radius cutoff-dist
-  ask in-radius-atoms [
-    ; each atom calculates the force it feels from its
-    ; neighboring atoms and sums these forces
-    let r distance myself
-    let indiv-PE-and-force (LJ-potential-and-force r)
-    let force last indiv-PE-and-force
-    set sum-PE sum-PE + first indiv-PE-and-force
-    face myself
-    rt 180
-    set new-fx new-fx + (force * dx)
-    set new-fy new-fy + (force * dy)
-  ]
-  set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
-
-  set new-fy new-fy + ceiling-or-floor-force
-
-  if not pinned? [
-    ; adjusting the forces to account for any external applied forces
-    let ex-force 0
-    if ex-force-applied? [
-      ifelse force-mode = "Tension" and auto-increment-force? [
-        ; ex-force is enough to cancel out any force plus a little more
-        set ex-force ( - new-fx + 0.001 )
-        ; auto-increment-force reports total ex-force
-        set auto-increment-force auto-increment-force + ex-force
-      ]
-      [ 
-        set shape "circle-dot"
-        set ex-force ( force-applied / num-forced-atoms ) 
-      ]
+  ask atoms [
+    
+    let sum-PE 0
+    let new-fx 0
+    let new-fy 0
+    ask other atoms in-radius cutoff-dist [
+      ; each atom calculates the force it feels from its
+      ; neighboring atoms and sums these forces
+      let r distance myself
+      let indiv-PE-and-force (LJ-potential-and-force r)
+      let force last indiv-PE-and-force
+      face myself
+      rt 180
+      set new-fx new-fx + (force * dx)
+      set new-fy new-fy + (force * dy)
+      set sum-PE sum-PE + first indiv-PE-and-force
     ]
-    if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
-    set new-fx ex-force + new-fx
-
-    ; updating velocity and force
-    set vx mdc.velocity-verlet-velocity vx (fx / mass) (new-fx / mass)
-    set vy mdc.velocity-verlet-velocity vy (fy / mass) (new-fy / mass)
-    set fx new-fx
-    set fy new-fy
+    set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+    
+    set new-fy new-fy + ceiling-or-floor-force
+    
+    if not pinned? [
+      ; adjusting the forces to account for any external applied forces
+      let ex-force 0
+      if ex-force-applied? [
+        ifelse force-mode = "Tension" and auto-increment-force? [
+          ; ex-force is enough to cancel out any force plus a little more
+          set ex-force ( - new-fx + 0.001 )
+          ; auto-increment-force reports total ex-force
+          set auto-increment-force auto-increment-force + ex-force
+        ]
+        [ 
+          set shape "circle-dot"
+          set ex-force ( force-applied / num-forced-atoms ) 
+        ]
+      ]
+      if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
+      set new-fx ex-force + new-fx
+      
+      ; updating velocity and force
+      set vx mdc.velocity-verlet-velocity vx (fx / mass) (new-fx / mass)
+      set vy mdc.velocity-verlet-velocity vy (fy / mass) (new-fy / mass)
+      set fx new-fx
+      set fy new-fy
+    ]
   ]
 end
 
@@ -381,12 +383,12 @@ to-report ceiling-or-floor-force
     ;; apply force in y-direction due to floor and ceiling
     let f 0
     (ifelse
-      ycor > (ceiling-ycor - 2) [
+      ycor > (ceiling-ycor - (2 * r-min)) [
         let ceiling-PE-and-force (LJ-potential-and-force (ceiling-ycor - ycor))
         set f item 1 ceiling-PE-and-force
         
       ]
-      ycor < (floor-ycor + 2) [
+      ycor < (floor-ycor + (2 * r-min)) [
         let floor-PE-and-force (LJ-potential-and-force (ycor - ceiling-ycor))
         set f item 1 floor-PE-and-force
       ]

@@ -65,9 +65,7 @@ to go
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms-die-at-edge
   identify-force-atoms
-  ask atoms [
-    update-force-and-velocity-and-links
-  ]
+  update-force-and-velocity
   mdc.scale-velocities
   vab.update-atom-color-and-links
   calculate-fl-positions
