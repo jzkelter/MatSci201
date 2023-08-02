@@ -88,9 +88,6 @@ to setup-force-mode-shape-and-pinned
       ] [ die ]
 
       ask atoms with [xcor = x-min or xcor = x-min + (x-dist / 2) ] [set pinned? True]
-      ; defining top and bottom neck agentsets
-      set top-neck-atoms atoms with [xcor <= xmax - (x-dist * 2.5) and xcor >= (x-dist * 2.5)] with-max [ycor]
-      set bottom-neck-atoms atoms with [xcor <= xmax - (x-dist * 2.5) and xcor >= (x-dist * 2.5)] with-min [ycor]
       ask atoms with [ xcor <= xmax and xcor >= xmax - (x-dist * 1.5) ][
         set ex-force-applied? True
         set shape "circle-dot"
@@ -237,9 +234,10 @@ end
 
 to setup-cross-section
   if force-mode = "Tension" [
-    let avg-max mean [ycor] of top-neck-atoms
-    let avg-min mean [ycor] of bottom-neck-atoms
-    set cross-section avg-max - avg-min
+    let xcenter (max-pxcor + min-pxcor) / 2
+    let top-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-max [ycor]
+    let bottom-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-min [ycor]
+    set cross-section top-neck-ycor - bottom-neck-ycor
   ]
 end
 
