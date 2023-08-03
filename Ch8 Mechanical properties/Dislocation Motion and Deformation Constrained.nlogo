@@ -481,7 +481,7 @@ SWITCH
 203
 create-floor-and-ceiling?
 create-floor-and-ceiling?
-1
+0
 1
 -1000
 

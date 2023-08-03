@@ -40,6 +40,7 @@ to setup-constants
   set dt .1
   set kb 0.0002 ; this is a very small number right now
   set eps 0.07
+  set eps*4 eps * 4
   set cutoff-dist 2.5 * r-min
 end
 
@@ -332,7 +333,7 @@ end
 
 to update-force-and-velocity
   ask atoms [
-    let force-velocity-PE ch8.calculate-force-and-velocity-and-PE-1sig
+    let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-1sig
     let n-fx item 0 force-velocity-PE
     let n-fy item 1 force-velocity-PE
     let sum-PE item 2 force-velocity-PE
