@@ -332,51 +332,40 @@ end
 
 to update-force-and-velocity
   ask atoms [
-    let sum-PE 0
-    let new-fx 0
-    let new-fy 0
-    ask other atoms in-radius cutoff-dist [
-      ; each atom calculates the force it feels from its
-      ; neighboring atoms and sums these forces
-      let r distance myself
-      let indiv-PE-and-force (LJ-potential-and-force r)
-      let force last indiv-PE-and-force
-      face myself
-      rt 180
-      set new-fx new-fx + (force * dx)
-      set new-fy new-fy + (force * dy)
-      set sum-PE sum-PE + first indiv-PE-and-force
-    ]
-    set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+    let force-velocity-PE ch8.calculate-force-and-velocity-and-PE-1sig
+    let n-fx item 0 force-velocity-PE
+    let n-fy item 1 force-velocity-PE
+    let sum-PE item 2 force-velocity-PE
     
-    set new-fy new-fy + ceiling-or-floor-force
+    set n-fy n-fy + ceiling-or-floor-force
     
-    if not pinned? [
-      ; adjusting the forces to account for any external applied forces
-      let ex-force 0
-      if ex-force-applied? [
-        ifelse force-mode = "Tension" and auto-increment-force? [
-          ; ex-force is enough to cancel out any force plus a little more
-          set ex-force ( - new-fx + 0.001 )
-          ; auto-increment-force reports total ex-force offset in x direction, and force offset in y-direction
-          set auto-increment-force auto-increment-force + ex-force - new-fy
-          set new-fy 0
-        ]
-        [ 
-          set shape "circle-dot"
-          set ex-force ( force-applied / num-forced-atoms ) 
-        ]
-      ]
-      if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
-      set new-fx ex-force + new-fx
-      
-      ; updating velocity and force
-      set vx mdc.velocity-verlet-velocity vx (fx / mass) (new-fx / mass)
-      set vy mdc.velocity-verlet-velocity vy (fy / mass) (new-fy / mass)
-      set fx new-fx
-      set fy new-fy
-    ]
+    let force-velocity update-external-force n-fx n-fy
+    set n-fx item 0 force-velocity
+    set n-fy item 1 force-velocity
+    
+    mdc.update-force-and-velocity n-fx n-fy
   ]
+end
+
+to-report ch8.calculate-force-and-velocity-and-PE-1sig
+  let n-fx 0
+  let n-fy 0
+  let sum-PE 0
+  ask other atoms in-radius cutoff-dist [
+    ; each atom calculates the force it feels from its
+    ; neighboring atoms and sums these forces
+    let r distance myself
+    let indiv-pot-E-and-force (LJ-potential-and-force r)
+    let force last indiv-pot-E-and-force    
+    face myself
+    rt 180
+    set n-fx n-fx + (force * dx)
+    set n-fy n-fy + (force * dy)
+    set sum-PE sum-PE + first indiv-pot-E-and-force
+  ]
+  set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+  
+  report (list n-fx n-fy sum-PE)
 end
 
 to-report ceiling-or-floor-force
@@ -397,6 +386,29 @@ to-report ceiling-or-floor-force
     report f
   ]
   [ report 0 ]
+end
+
+to-report update-external-force [ n-fx n-fy ]
+  if not pinned? [
+      ; adjusting the forces to account for any external applied forces
+      let ex-force 0
+      if ex-force-applied? [
+        ifelse force-mode = "Tension" and auto-increment-force? [
+          ; ex-force is enough to cancel out any force plus a little more
+          set ex-force ( - n-fx + 0.001 )
+          ; auto-increment-force reports total ex-force offset in x direction, and force offset in y-direction
+          set auto-increment-force auto-increment-force + ex-force - n-fy
+          set n-fy 0
+        ]
+        [ 
+          set shape "circle-dot"
+          set ex-force ( force-applied / num-forced-atoms ) 
+        ]
+      ]
+      if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
+      set n-fx ex-force + n-fx
+    ]
+  report list n-fx n-fy
 end
 
 to-report LJ-potential-and-force [ r ] ; for the force, positive = attractive, negative = repulsive

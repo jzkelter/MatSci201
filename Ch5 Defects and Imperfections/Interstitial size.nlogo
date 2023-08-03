@@ -46,12 +46,13 @@ end
 to setup-interstitial
   create-atoms 1 [
     setxy 0.5612310241546858  0.3240268828732776
+    set shape "circle"
+    set color red
     set sigma 0.2
     set mass sigma ^ 2
-    set base-color red
-    set color red
     set pinned? false
     set selected? true
+    set base-color red
     aep.set-size
   ]
 end

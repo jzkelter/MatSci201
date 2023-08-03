@@ -240,55 +240,75 @@ end
 
 to mdc.update-force-and-velocity-1sig  ; atom procedure
   ask atoms [
-    let sum-PE 0
-    let n-fx 0
-    let n-fy 0
-    ask other atoms in-radius cutoff-dist [
-      let r distance myself
-      ;; this next line needs to be changed to switch between LJ's
-      let indiv-PE-and-force (mdc.LJ-potential-and-force-1sig r)
-      let force last indiv-PE-and-force
-      face myself
-      rt 180
-      set n-fx n-fx + (force * dx)
-      set n-fy n-fy + (force * dy)
-      set sum-PE sum-PE + first indiv-PE-and-force
-    ]
-    set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+    let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-1sig
+    let n-fx item 0 force-velocity-PE
+    let n-fy item 1 force-velocity-PE
+    let sum-PE item 2 force-velocity-PE
     
-    if not pinned? [
-      set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
-      set vy mdc.velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
-      set fx n-fx
-      set fy n-fy
-    ]
+    mdc.update-force-and-velocity n-fx n-fy
   ]
+end
+
+to-report mdc.calculate-force-and-velocity-and-PE-1sig
+  let n-fx 0
+  let n-fy 0
+  let sum-PE 0
+  ask other atoms in-radius cutoff-dist [
+    ; each atom calculates the force it feels from its
+    ; neighboring atoms and sums these forces
+    let r distance myself
+    let indiv-pot-E-and-force (mdc.LJ-potential-and-force-1sig r)
+    let force last indiv-pot-E-and-force    
+    face myself
+    rt 180
+    set n-fx n-fx + (force * dx)
+    set n-fy n-fy + (force * dy)
+    set sum-PE sum-PE + first indiv-pot-E-and-force
+  ]
+  set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+  
+  report (list n-fx n-fy sum-PE)
 end
 
 to mdc.update-force-and-velocity-2sig
   ask atoms [    
-    let sum-PE 0
-    let n-fx 0
-    let n-fy 0
-    ask other atoms in-radius cutoff-dist [
-      let r distance myself
-      let indiv-pot-E-and-force (mdc.LJ-potential-and-force-2sig r sigma [sigma] of myself)
-      let force last indiv-pot-E-and-force    
-      face myself
-      rt 180
-      set n-fx n-fx + (force * dx)
-      set n-fy n-fy + (force * dy)
-      set sum-PE sum-PE + first indiv-pot-E-and-force
-    ]
-    set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+    let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-2sig
+    let n-fx item 0 force-velocity-PE
+    let n-fy item 1 force-velocity-PE
+    let sum-PE item 2 force-velocity-PE
     
-    ; updating velocity and force
-    if not pinned? [
-      set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
+    mdc.update-force-and-velocity n-fx n-fy
+  ]
+end
+
+to-report mdc.calculate-force-and-velocity-and-PE-2sig
+  let n-fx 0
+  let n-fy 0
+  let sum-PE 0
+  ask other atoms in-radius cutoff-dist [
+    ; each atom calculates the force it feels from its
+    ; neighboring atoms and sums these forces
+    let r distance myself
+    let indiv-pot-E-and-force (mdc.LJ-potential-and-force-2sig r sigma [sigma] of myself)
+    let force last indiv-pot-E-and-force    
+    face myself
+    rt 180
+    set n-fx n-fx + (force * dx)
+    set n-fy n-fy + (force * dy)
+    set sum-PE sum-PE + first indiv-pot-E-and-force
+  ]
+  set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+  
+  report (list n-fx n-fy sum-PE)
+end
+
+to mdc.update-force-and-velocity [n-fx n-fy]
+  ; updating velocity and force
+  if not pinned? [
+    set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
       set vy mdc.velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
       set fx n-fx
       set fy n-fy
-    ]
   ]
 end
 
