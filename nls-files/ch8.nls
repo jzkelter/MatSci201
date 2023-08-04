@@ -94,8 +94,8 @@ to setup-force-mode-shape-and-pinned
          xcor >= x-min + 2.5
       ] [ die ]
 
-      ask atoms with [xcor = x-min or xcor = x-min + (x-dist / 2) ] [set pinned? true]
-      ask atoms with [ xcor <= xmax and xcor >= xmax - (x-dist * 1.5) ][
+      ask atoms with [xcor = x-min or xcor <= x-min + (x-dist / 2) ] [set pinned? true]
+      ask atoms with [ xcor <= xmax and xcor >= xmax - (x-dist * 1.75) ][
         set ex-force-applied? true
         set shape "circle-dot"
       ]
@@ -121,13 +121,17 @@ to setup-dislocation
   
   if create-dislocation? = true [ ; creating the dislocation
     let dis-xcor (median [xcor] of atoms)
-    let dis-ycor (median [ycor] of atoms)
+    let dis-ycor unpinned-min-ycor
     let ii 0
     while [ dis-ycor <= ceiling (max [ycor] of atoms) ] [
-      ask atoms with [ ( ycor <= dis-ycor + y-dist * .75 ) and ( ycor >= dis-ycor ) ] [
-        (ifelse ( xcor <= dis-xcor + x-dist * .75 ) and ( xcor >= dis-xcor ) [ die ]
-          xcor >= dis-xcor [ set xcor xcor - .05 * ii ]
-          xcor < dis-xcor [ set xcor xcor + .05 * ii ]
+      ask atoms with [ ( ycor <= dis-ycor + y-dist * .25 ) and ( ycor >= dis-ycor - y-dist * 0.25 ) ] [
+        (ifelse ( xcor <= dis-xcor + x-dist * .25 ) and ( xcor >= dis-xcor - x-dist * 0.25 ) [ die ]
+          xcor >= dis-xcor [
+            ;set xcor xcor - .05 * ii
+          ]
+          xcor < dis-xcor [
+            ;set xcor xcor + .05 * ii
+          ]
         )
       ]
       
