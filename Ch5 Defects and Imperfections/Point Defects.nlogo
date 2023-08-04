@@ -398,7 +398,7 @@ CHOOSER
 click-mode
 click-mode
 "drag-atoms" "delete-atoms" "add-atoms" "select-atoms"
-3
+0
 
 TEXTBOX
 0

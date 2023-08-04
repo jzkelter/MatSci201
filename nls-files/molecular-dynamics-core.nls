@@ -331,9 +331,7 @@ to mdc.scale-velocities
 end
 
 to-report mdc.current-temp
-  ; assuming mass is 1
-  ;report (1 / (2 * Kb)) * mean [vx ^ 2 + vy ^ 2] of atoms with [not pinned?]
-  
+  ; temperature = kinetic energy / boltzmann constant, with KE = (1/2) * m * v^2
   report mean [ (mass / Kb) * (1 / 2) * (vx ^ 2 + vy ^ 2) ] of atoms with [not pinned?]
 end
 

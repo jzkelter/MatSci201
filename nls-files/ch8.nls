@@ -22,6 +22,8 @@ globals [
   ceiling-ycor
   floor-ycor
   
+  ;; the following global is for the atom-editing-procedures.nls file
+  atom-viz-size
   
   ; globals that are in mdc.nls:
   ; eps ; used in LJ force. Well depth; measure of how strongly particles attract each other
@@ -392,10 +394,6 @@ to-report update-external-force [ n-fx n-fy ]
   report list n-fx n-fy
 end
 
-to set-color [v]
-  set color scale-color blue v -.9 0
-end
-
 to-report strain ; tension only
   report ((right-fl - left-edge) - orig-length) / orig-length
 end
@@ -420,4 +418,9 @@ end
 ;  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) + .0001
 ;  let potential (4 * eps * (twelfth-power - sixth-power)) + .00001
 ;  report list potential force
+;end
+
+; old vab atom-color 
+;to set-color [v]
+;  set color scale-color blue v -.9 0
 ;end
