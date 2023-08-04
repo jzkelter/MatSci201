@@ -82,7 +82,7 @@ end
 to simulate
   ask links [hide-link]
   mdc.move-atoms
-  mdc.update-force-and-velocity-1sig
+  mdc.update-force-and-velocity-and-PE-1sig
   if constant-temp? [mdc.scale-velocities]
 
   tick-advance dt

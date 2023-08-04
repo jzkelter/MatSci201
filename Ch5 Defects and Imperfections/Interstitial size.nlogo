@@ -76,7 +76,7 @@ to simulate
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms
 
-  mdc.update-force-and-velocity-2sig
+  mdc.update-force-and-velocity-and-PE-2sig
   vab.update-atom-color-and-links
   mdc.scale-velocities
   vab.color-links  ; stylizing/coloring links

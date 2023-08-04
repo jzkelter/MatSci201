@@ -238,7 +238,7 @@ to mdc.move-atoms-die-at-edge
 end
 
 
-to mdc.update-force-and-velocity-1sig  ; atom procedure
+to mdc.update-force-and-velocity-and-PE-1sig  ; atom procedure
   ask atoms [
     let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-1sig
     let n-fx item 0 force-velocity-PE
@@ -270,7 +270,7 @@ to-report mdc.calculate-force-and-velocity-and-PE-1sig
   report (list n-fx n-fy sum-PE)
 end
 
-to mdc.update-force-and-velocity-2sig
+to mdc.update-force-and-velocity-and-PE-2sig
   ask atoms [    
     let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-2sig
     let n-fx item 0 force-velocity-PE
