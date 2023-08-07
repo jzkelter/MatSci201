@@ -257,7 +257,7 @@ to-report mdc.calculate-force-and-velocity-and-PE-1sig
     ; each atom calculates the force it feels from its
     ; neighboring atoms and sums these forces
     let r distance myself
-    let indiv-pot-E-and-force (mdc.LJ-potential-and-force-1sig r)
+    let indiv-pot-E-and-force (mdc.new-LJ-potential-and-force-1sig r)
     let force last indiv-pot-E-and-force    
     face myself
     rt 180
@@ -392,6 +392,28 @@ end
 ;; *****************************************************
 
 ;; this next section is LJ for single sigma
+
+to-report mdc.new-LJ-potential-and-force-1sig [r]
+  let switch-point cutoff-dist * 0.9
+  ifelse r <= switch-point [
+    let third-power (sigma / r) * (sigma / r) * (sigma / r)
+    let sixth-power third-power * third-power
+    let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1)
+    let potential (eps*4 * (sixth-power * sixth-power - sixth-power))
+    report list potential force
+  ]
+  [
+    let third-power (sigma / switch-point) * (sigma / switch-point) * (sigma / switch-point)
+    let sixth-power third-power * third-power
+    let switch-force (-6 * eps*4 * sixth-power / switch-point) * (2 * sixth-power - 1)
+    let switch-potential (eps*4 * (sixth-power * sixth-power - sixth-power))
+    let force-slope ((- switch-force) / (cutoff-dist - switch-point))
+    let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
+    let force (r * force-slope + switch-force * 10)
+    let potential (r * potential-slope + switch-potential * 10)
+    report list potential force
+  ]
+end
 
 to-report mdc.LJ-potential-and-force-1sig [r]
   let PE-and-force mdc.LJ-potential-and-force-wo-offset-1sig r
