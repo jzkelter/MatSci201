@@ -39,7 +39,7 @@ globals [
 ;; Setup Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
-to setup-constants
+to mp.setup-constants
   set dt .1
   set kb 0.0002 ; this is a very small number right now
   set eps 0.07
@@ -47,14 +47,14 @@ to setup-constants
   set cutoff-dist 2.5 * r-min
 end
 
-to setup-tension-col
+to mp.setup-tension-col
   ; making a symmetrical sample for tension mode
   if force-mode = "Tension" and atoms-per-column mod 2 = 0 [
     set atoms-per-column atoms-per-column + 1
   ]
 end
 
-to setup-force-mode-shape-and-pinned
+to mp.setup-force-mode-shape-and-pinned
   let x-dist r-min ; the distance between atoms in the x direction
   let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
   
@@ -109,11 +109,11 @@ to setup-force-mode-shape-and-pinned
   ask atoms with [pinned?] [ set shape "circle-x"]
 end
 
-to ch8.init-atom
+to mp.init-atom
   set ex-force-applied? false
 end
 
-to setup-dislocation
+to mp.setup-dislocation
   if create-dislocation? = true [ ; creating the dislocation
     let start-xcor (median [xcor] of atoms)
     let start-ycor (median [ycor] of atoms)
@@ -121,7 +121,7 @@ to setup-dislocation
     ask min-one-of atoms [(xcor - start-xcor) ^ 2 + (ycor - start-ycor) ^ 2] [
       set heading -30
       ask atoms in-cone (r-min * atoms-per-column) 1 [die]
-      ;setup-dislocation-iterate
+      ;mp.setup-dislocation-iterate
     ]
   ]
   
@@ -145,16 +145,16 @@ to setup-dislocation
 ;   ]
 end
 
-to setup-dislocation-iterate
+to mp.setup-dislocation-iterate
   set heading -30
   let up-left-atoms (atoms in-cone (r-min) 1)
   if any? up-left-atoms [
-    ask up-left-atoms [setup-dislocation-iterate]
+    ask up-left-atoms [mp.setup-dislocation-iterate]
   ]
   die
 end
 
-to setup-force-lines
+to mp.setup-force-lines
   let x-dist r-min ; the distance between atoms in the x direction
   let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
   
@@ -223,7 +223,7 @@ end
 
 
 
-to setup-floor-and-ceiling
+to mp.setup-floor-and-ceiling
   if create-floor-and-ceiling? = true [
     set ceiling-ycor max [ycor] of atoms + r-min
     set floor-ycor min [ycor] of atoms - r-min
@@ -255,7 +255,7 @@ to setup-floor-and-ceiling
   ]
 end
 
-to setup-cross-section
+to mp.setup-cross-section
   if force-mode = "Tension" [
     let xcenter (max-pxcor + min-pxcor) / 2
     let top-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-max [ycor]
@@ -264,7 +264,7 @@ to setup-cross-section
   ]
 end
 
-to setup-auto-increment-force
+to mp.setup-auto-increment-force
   if force-mode = "Tension" and auto-increment-force? [
     set force-applied 0
     ask atoms with [ ex-force-applied? ]  [
@@ -279,7 +279,7 @@ end
 ;; Runtime Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-to update-lattice-view
+to mp.update-lattice-view
   (ifelse lattice-view = "large-atoms" [
     ask atoms [
       show-turtle
@@ -298,7 +298,7 @@ to update-lattice-view
   set prev-lattice-view lattice-view
 end
 
-to calculate-fl-positions ; (calculate new force line positions)
+to mp.calculate-fl-positions ; (calculate new force line positions)
   (ifelse force-mode = "Shear" [
       set upper-left-fl min [xcor] of atoms with [ ycor >= unpinned-min-ycor ]
       ask fl-ends [ set xcor upper-left-fl]
@@ -323,7 +323,7 @@ to calculate-fl-positions ; (calculate new force line positions)
 end
 
 ; find the atoms closest to the force line that will be the ones receiving the external force
-to identify-force-atoms
+to mp.identify-force-atoms
   (ifelse force-mode = "Shear" [
     ask atoms [ set ex-force-applied?  false ]
     let forced-atoms atoms with [ ycor >= unpinned-min-ycor and (distancexy upper-left-fl ycor) <= r-min]
@@ -342,16 +342,16 @@ to identify-force-atoms
   ]) ; for tension, the same atoms in the left shoulder of the sample always receive the force
 end
 
-to update-force-and-velocity-and-PE
+to mp.update-force-and-velocity-and-PE
   ask atoms [
     let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-1sig
     let n-fx item 0 force-velocity-PE
     let n-fy item 1 force-velocity-PE
     let sum-PE item 2 force-velocity-PE
     
-    set n-fy n-fy + ceiling-or-floor-force
+    set n-fy n-fy + mp.ceiling-orfloor-force
     
-    let force-velocity update-external-force n-fx n-fy
+    let force-velocity mp.update-external-force n-fx n-fy
     set n-fx item 0 force-velocity
     set n-fy item 1 force-velocity
     
@@ -359,7 +359,7 @@ to update-force-and-velocity-and-PE
   ]
 end
 
-to-report ceiling-or-floor-force
+to-report mp.ceiling-orfloor-force
   ifelse create-floor-and-ceiling? = true [
     ;; apply force in y-direction due to floor and ceiling
     let f 0
@@ -379,7 +379,7 @@ to-report ceiling-or-floor-force
   [ report 0 ]
 end
 
-to-report update-external-force [ n-fx n-fy ]
+to-report mp.update-external-force [ n-fx n-fy ]
   if not pinned? [
       ; adjusting the forces to account for any external applied forces
       let ex-force 0
@@ -402,19 +402,19 @@ to-report update-external-force [ n-fx n-fy ]
   report list n-fx n-fy
 end
 
-to-report strain ; tension only
+to-report mp.strain ; tension only
   report ((right-fl - left-edge) - orig-length) / orig-length
 end
 
-to-report stress ; tension only
+to-report mp.stress ; tension only
   report (((-1 * force-applied) + auto-increment-force) / cross-section)
 end
 
-to-report report-indiv-ex-force
+to-report mp.report-indiv-ex-force
   report (force-applied + auto-increment-force) / num-forced-atoms
 end
 
-to-report report-total-ex-force
+to-report mp.report-total-ex-force
   report force-applied + auto-increment-force
 end
 

@@ -1,4 +1,4 @@
-__includes [ "../nls-files/ch8.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
+__includes [ "../nls-files/molecular-dynamics-core.nls" "../nls-files/mechanical-properties.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
 
 breed [atoms atom]
 
