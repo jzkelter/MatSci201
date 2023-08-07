@@ -37,23 +37,26 @@ to setup
   clear-all
   set force-mode "Tension"
   set temp .07
-  setup-constants
-  setup-tension-col
+  mp.setup-constants
+  mp.setup-tension-col
   mdc.setup-atoms-nrc atoms-per-row atoms-per-column
-  ask atoms [ch8.init-atom]
-  setup-force-mode-shape-and-pinned
-  update-lattice-view
+  ask atoms [
+    mp.init-atom
+    aep.init-atom
+  ]
+  mp.setup-force-mode-shape-and-pinned
+  mp.update-lattice-view
   mdc.init-velocity
   ask atom 1 [ mdc.setup-offsets-1sig ]
 
   vab.setup-links
 
-  setup-dislocation
-  setup-force-lines
-  setup-floor-and-ceiling
+  mp.setup-dislocation
+  mp.setup-force-lines
+  mp.setup-floor-and-ceiling
 
-  setup-cross-section
-  setup-auto-increment-force
+  mp.setup-cross-section
+  mp.setup-auto-increment-force
   reset-ticks
 end
 
@@ -63,16 +66,16 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
 to go
-  if lattice-view != prev-lattice-view [ update-lattice-view ]
+  if lattice-view != prev-lattice-view [ mp.update-lattice-view ]
   set auto-increment-force 0
   ask atom-links [ die ]
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms-die-at-edge
-  identify-force-atoms
-  update-force-and-velocity-and-PE
+  mp.identify-force-atoms
+  mp.update-force-and-velocity-and-PE
   mdc.scale-velocities
   vab.update-atom-color-and-links
-  calculate-fl-positions
+  mp.calculate-fl-positions
   vab.color-links  ; stylizing/coloring links
   tick-advance dt
   update-plots
@@ -248,7 +251,7 @@ MONITOR
 900
 265
 external force per forced atom (N)
-report-indiv-ex-force
+mp.report-indiv-ex-force
 3
 1
 11
@@ -269,7 +272,7 @@ false
 false
 "" ""
 PENS
-"default" 1.0 2 -16777216 true "" "if force-mode = \"Tension\" [ plotxy strain stress ]"
+"default" 1.0 2 -16777216 true "" "if force-mode = \"Tension\" [ plotxy mp.strain mp.stress ]"
 
 MONITOR
 680
@@ -277,7 +280,7 @@ MONITOR
 806
 470
 total external force (N)
-report-total-ex-force
+mp.report-total-ex-force
 5
 1
 11
