@@ -84,6 +84,7 @@ to aep.delete-atoms
   if mouse-down? [
     ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
       and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
+    display
   ]
 
 end

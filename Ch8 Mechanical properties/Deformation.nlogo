@@ -1,4 +1,4 @@
-__includes [ "../nls-files/ch8.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
+__includes [ "../nls-files/ch8.nls" "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
 
 breed [atoms atom]
 
@@ -15,6 +15,9 @@ atoms-own [
   base-color  ; display color for the atom when it isn't selected
 
   ex-force-applied? ; is an external force directly applied to this atom? False if no, True if yes
+
+  ;; the following variable is for the atom-editing-procedures.nls file
+  selected? ; whether the atom is selected or  not to change its size
 ]
 
 globals [
@@ -427,7 +430,7 @@ BUTTON
 142
 160
 delete-atoms
-delete-atoms
+aep.delete-atoms
 T
 1
 T

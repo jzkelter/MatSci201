@@ -66,7 +66,7 @@ to setup-force-mode-shape-and-pinned
 
   
   (ifelse force-mode = "Shear"[
-    set unpinned-min-ycor y-min + 4 * y-dist
+    set unpinned-min-ycor min [ycor] of atoms with [ycor > y-min + 3.5 * y-dist]
     ask atoms with [
       (
         (xcor = x-min or
@@ -75,7 +75,7 @@ to setup-force-mode-shape-and-pinned
           xcor = xmax - (x-dist / 2)
         )
         and
-        ( ycor <= unpinned-min-ycor - y-dist)
+        ( ycor < unpinned-min-ycor)
       )
     ] [
       set pinned? true
@@ -114,32 +114,44 @@ to ch8.init-atom
 end
 
 to setup-dislocation
-  ; this needs to be changed
-  
-  let x-dist r-min ; the distance between atoms in the x direction
-  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
-  
   if create-dislocation? = true [ ; creating the dislocation
-    let dis-xcor (median [xcor] of atoms)
-    let dis-ycor unpinned-min-ycor
-    let ii 0
-    while [ dis-ycor <= ceiling (max [ycor] of atoms) ] [
-      ask atoms with [ ( ycor <= dis-ycor + y-dist * .25 ) and ( ycor >= dis-ycor - y-dist * 0.25 ) ] [
-        (ifelse ( xcor <= dis-xcor + x-dist * .25 ) and ( xcor >= dis-xcor - x-dist * 0.25 ) [ die ]
-          xcor >= dis-xcor [
-            ;set xcor xcor - .05 * ii
-          ]
-          xcor < dis-xcor [
-            ;set xcor xcor + .05 * ii
-          ]
-        )
-      ]
-      
-      set dis-ycor dis-ycor + y-dist
-      set dis-xcor dis-xcor - x-dist / 2
-      set ii ii + 1
+    let start-xcor (median [xcor] of atoms)
+    let start-ycor (median [ycor] of atoms)
+    if force-mode = "Shear" [ set start-ycor unpinned-min-ycor ]
+    ask min-one-of atoms [(xcor - start-xcor) ^ 2 + (ycor - start-ycor) ^ 2] [
+      set heading -30
+      ask atoms in-cone (r-min * atoms-per-column) 1 [die]
+      ;setup-dislocation-iterate
     ]
-   ]
+  ]
+  
+;  let x-dist r-min ; the distance between atoms in the x direction
+;  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+;  
+;  if create-dislocation? = true [ ; creating the dislocation
+;    let dis-xcor (median [xcor] of atoms)
+;    let dis-ycor (median [ycor] of atoms)
+;    if force-mode = "Shear" [ set dis-ycor unpinned-min-ycor ]
+;    let ii 0
+;    while [ dis-ycor <= ceiling (max [ycor] of atoms) ] [
+;      ask atoms with [ ( ycor <= dis-ycor + y-dist * .25 ) and ( ycor >= dis-ycor - y-dist * 0.25 ) ] [
+;        if ( xcor <= dis-xcor + x-dist * .25 ) and ( xcor >= dis-xcor - x-dist * 0.25 ) [ die ]
+;      ]
+;      
+;      set dis-ycor dis-ycor + y-dist
+;      set dis-xcor dis-xcor - x-dist / 2
+;      set ii ii + 1
+;    ]
+;   ]
+end
+
+to setup-dislocation-iterate
+  set heading -30
+  let up-left-atoms (atoms in-cone (r-min) 1)
+  if any? up-left-atoms [
+    ask up-left-atoms [setup-dislocation-iterate]
+  ]
+  die
 end
 
 to setup-force-lines
@@ -266,14 +278,6 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
-
-to delete-atoms
-  if mouse-down? [
-    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
-      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
-  ]
-  display
-end
 
 to update-lattice-view
   (ifelse lattice-view = "large-atoms" [

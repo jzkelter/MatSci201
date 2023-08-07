@@ -469,7 +469,7 @@ BUTTON
 152
 375
 delete-atoms
-delete-atoms
+aep.delete-atoms
 T
 1
 T
@@ -487,7 +487,7 @@ SWITCH
 203
 create-floor-and-ceiling?
 create-floor-and-ceiling?
-0
+1
 1
 -1000
 
