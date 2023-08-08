@@ -20,6 +20,8 @@ globals [
   dt
   kb
   
+  LJ-force-linear-1sig
+  LJ-PE-linear-1sig
   LJ-force-offset-1sig
   LJ-PE-offset-1sig
   LJ-force-offset-2sig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
@@ -49,6 +51,11 @@ to mdc.setup-offsets-1sig
   let cutoff-PE-and-force mdc.LJ-potential-and-force-wo-offset-1sig cutoff-dist
   set LJ-force-offset-1sig -1 * last cutoff-PE-and-force
   set LJ-PE-offset-1sig -1 * first cutoff-PE-and-force
+end
+
+to mdc.setup-cutoff-linear-functions
+  set LJ-force-linear-1sig ( [ [ r force-slope switch-force ] -> r * force-slope + switch-force * 10 ] )
+  set LJ-PE-linear-1sig  ( [ [ r potential-slope switch-potential ] -> r * potential-slope + switch-potential * 10 ] )
 end
 
 to mdc.setup-offsets-2sig
@@ -409,8 +416,13 @@ to-report mdc.new-LJ-potential-and-force-1sig [r]
     let switch-potential (eps*4 * (sixth-power * sixth-power - sixth-power))
     let force-slope ((- switch-force) / (cutoff-dist - switch-point))
     let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
-    let force (r * force-slope + switch-force * 10)
-    let potential (r * potential-slope + switch-potential * 10)
+    
+    ;let force (r * force-slope + switch-force * 10)
+    ;let potential (r * potential-slope + switch-potential * 10)
+    
+    let force ( runresult LJ-force-linear-1sig r force-slope switch-force )
+    let potential (runresult LJ-PE-linear-1sig r potential-slope switch-potential)
+    
     report list potential force
   ]
 end

@@ -38,6 +38,7 @@ to setup
   mp.update-lattice-view
   mdc.init-velocity
   ask atom 1 [ mdc.setup-offsets-1sig ]
+  mdc.setup-cutoff-linear-functions
 
   vab.setup-links
 
@@ -144,7 +145,7 @@ CHOOSER
 force-mode
 force-mode
 "Shear" "Tension" "Compression"
-0
+1
 
 SLIDER
 15
@@ -170,7 +171,7 @@ force-applied
 force-applied
 0
 30
-10.1
+0.0
 .1
 1
 N
@@ -449,7 +450,7 @@ SWITCH
 93
 auto-increment-force?
 auto-increment-force?
-1
+0
 1
 -1000
 
