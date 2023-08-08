@@ -40,9 +40,11 @@ globals [
 ;;;;;;;;;;;;;;;;;;;;;;
 
 to mp.setup-constants
-  set dt .1
-  set kb 0.0002 ; this is a very small number right now
-  set eps 0.07
+  set dt .06
+  ;set kb 0.0002 ; this is a very small number right now
+  ;set eps 0.07
+  set kb 0.1 ; just picking a random constant for Kb that makes things work reasonably
+  set eps 1
   set eps*4 eps * 4
   set cutoff-dist 2.5 * r-min
 end
@@ -121,10 +123,10 @@ to mp.setup-dislocation
     ask min-one-of atoms [(xcor - start-xcor) ^ 2 + (ycor - start-ycor) ^ 2] [
       set heading -30
       ask atoms in-cone (r-min * atoms-per-column) 1 [die]
-      ;mp.setup-dislocation-iterate
     ]
   ]
   
+  ;; old code
 ;  let x-dist r-min ; the distance between atoms in the x direction
 ;  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
 ;  
@@ -143,15 +145,6 @@ to mp.setup-dislocation
 ;      set ii ii + 1
 ;    ]
 ;   ]
-end
-
-to mp.setup-dislocation-iterate
-  set heading -30
-  let up-left-atoms (atoms in-cone (r-min) 1)
-  if any? up-left-atoms [
-    ask up-left-atoms [mp.setup-dislocation-iterate]
-  ]
-  die
 end
 
 to mp.setup-force-lines

@@ -144,7 +144,7 @@ CHOOSER
 force-mode
 force-mode
 "Shear" "Tension" "Compression"
-1
+0
 
 SLIDER
 15
@@ -155,7 +155,7 @@ temp
 temp
 0
 .4
-0.07
+0.005
 .001
 1
 NIL
@@ -170,7 +170,7 @@ force-applied
 force-applied
 0
 30
-0.0
+10.1
 .1
 1
 N
@@ -250,7 +250,7 @@ atoms-per-row
 atoms-per-row
 5
 20
-12.0
+13.0
 1
 1
 NIL
@@ -449,7 +449,7 @@ SWITCH
 93
 auto-increment-force?
 auto-increment-force?
-0
+1
 1
 -1000
 
@@ -487,7 +487,7 @@ SWITCH
 203
 create-floor-and-ceiling?
 create-floor-and-ceiling?
-1
+0
 1
 -1000
 
