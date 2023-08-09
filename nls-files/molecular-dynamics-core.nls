@@ -47,15 +47,17 @@ to-report r-min
   report 2 ^ (1 / 6)
 end
 
-to mdc.setup-offsets-1sig
-  let cutoff-PE-and-force mdc.LJ-potential-and-force-wo-offset-1sig cutoff-dist
-  set LJ-force-offset-1sig -1 * last cutoff-PE-and-force
-  set LJ-PE-offset-1sig -1 * first cutoff-PE-and-force
-end
-
-to mdc.setup-cutoff-linear-functions
-  set LJ-force-linear-1sig ( [ [ r force-slope switch-force ] -> r * force-slope + switch-force * 10 ] )
-  set LJ-PE-linear-1sig  ( [ [ r potential-slope switch-potential ] -> r * potential-slope + switch-potential * 10 ] )
+to mdc.setup-cutoff-linear-functions-1sig
+  let switch-point cutoff-dist * 0.9
+  let third-power (sigma / switch-point) * (sigma / switch-point) * (sigma / switch-point)
+  let sixth-power third-power * third-power
+  let switch-force (-6 * eps*4 * sixth-power / switch-point) * (2 * sixth-power - 1)
+  let switch-potential (eps*4 * (sixth-power * sixth-power - sixth-power))
+  let force-slope ((- switch-force) / (cutoff-dist - switch-point))
+  let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
+  
+  set LJ-force-linear-1sig ( [ r -> r * force-slope + switch-force * 10 ] )
+  set LJ-PE-linear-1sig  ( [ r -> r * potential-slope + switch-potential * 10 ] )
 end
 
 to mdc.setup-offsets-2sig
@@ -264,7 +266,7 @@ to-report mdc.calculate-force-and-velocity-and-PE-1sig
     ; each atom calculates the force it feels from its
     ; neighboring atoms and sums these forces
     let r distance myself
-    let indiv-pot-E-and-force (mdc.new-LJ-potential-and-force-1sig r)
+    let indiv-pot-E-and-force (mdc.LJ-potential-and-force-1sig r)
     let force last indiv-pot-E-and-force    
     face myself
     rt 180
@@ -400,8 +402,9 @@ end
 
 ;; this next section is LJ for single sigma
 
-to-report mdc.new-LJ-potential-and-force-1sig [r]
+to-report mdc.LJ-potential-and-force-1sig [r]
   let switch-point cutoff-dist * 0.9
+  ;; https://www.desmos.com/calculator/w302kgs0ed
   ifelse r <= switch-point [
     let third-power (sigma / r) * (sigma / r) * (sigma / r)
     let sixth-power third-power * third-power
@@ -410,40 +413,14 @@ to-report mdc.new-LJ-potential-and-force-1sig [r]
     report list potential force
   ]
   [
-    let third-power (sigma / switch-point) * (sigma / switch-point) * (sigma / switch-point)
-    let sixth-power third-power * third-power
-    let switch-force (-6 * eps*4 * sixth-power / switch-point) * (2 * sixth-power - 1)
-    let switch-potential (eps*4 * (sixth-power * sixth-power - sixth-power))
-    let force-slope ((- switch-force) / (cutoff-dist - switch-point))
-    let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
-    
     ;let force (r * force-slope + switch-force * 10)
     ;let potential (r * potential-slope + switch-potential * 10)
     
-    let force ( runresult LJ-force-linear-1sig r force-slope switch-force )
-    let potential (runresult LJ-PE-linear-1sig r potential-slope switch-potential)
+    let force ( runresult LJ-force-linear-1sig r )
+    let potential (runresult LJ-PE-linear-1sig r )
     
     report list potential force
   ]
-end
-
-to-report mdc.LJ-potential-and-force-1sig [r]
-  let PE-and-force mdc.LJ-potential-and-force-wo-offset-1sig r
-  let potential first PE-and-force + LJ-PE-offset-1sig
-  let force last PE-and-force + LJ-force-offset-1sig
-  report list potential force
-end
-
-to-report mdc.LJ-potential-and-force-wo-offset-1sig [r]
-  ; The following is the Lennard-Jones potential and its derivative, just rearranged to optimize calculation speed.
-  ; The unoptimized calculation would look like this:
-  ; let force eps*4 * (-12 * (sigma ^ 12 / r ^ 13) + 6 * (sigma ^ 6 / r ^ 7))
-  ; let potential eps*4 * ((sigma / r) ^ 12 - (sigma / r) ^ 6)
-  let third-power (sigma / r) * (sigma / r) * (sigma / r)
-  let sixth-power third-power * third-power
-  let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1)
-  let potential (eps*4 * (sixth-power * sixth-power - sixth-power))
-  report list potential force
 end
 
 to-report mdc.calc-PE-1sig

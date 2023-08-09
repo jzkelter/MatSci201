@@ -37,8 +37,9 @@ to setup
   mp.setup-force-mode-shape-and-pinned
   mp.update-lattice-view
   mdc.init-velocity
-  ask atom 1 [ mdc.setup-offsets-1sig ]
-  mdc.setup-cutoff-linear-functions
+  ask atom 1 [
+    mdc.setup-cutoff-linear-functions-1sig
+  ]
 
   vab.setup-links
 

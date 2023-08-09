@@ -36,7 +36,7 @@ globals [
 to setup
   clear-all
   set force-mode "Tension"
-  set temp .07
+  set temp .02
   mp.setup-constants
   mp.setup-tension-col
   mdc.setup-atoms-nrc atoms-per-row atoms-per-column
@@ -47,7 +47,7 @@ to setup
   mp.setup-force-mode-shape-and-pinned
   mp.update-lattice-view
   mdc.init-velocity
-  ask atom 1 [ mdc.setup-offsets-1sig ]
+  ask atom 1 [ mdc.setup-cutoff-linear-functions-1sig ]
 
   vab.setup-links
 

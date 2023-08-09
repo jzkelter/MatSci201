@@ -35,7 +35,7 @@ to setup
   if initial-config = "Solid" [mdc.setup-atoms-natoms num-atoms]
   if initial-config = "Random" [mdc.setup-atoms-random num-atoms]
 
-  ask atom 0 [ mdc.setup-offsets-1sig ]
+  ask atom 0 [ mdc.setup-cutoff-linear-functions-1sig ]
   mdc.init-velocity
 
   if num-atoms = 3 [
