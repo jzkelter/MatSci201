@@ -22,8 +22,10 @@ globals [
   
   LJ-force-linear-1sig
   LJ-PE-linear-1sig
-  LJ-force-offset-1sig
-  LJ-PE-offset-1sig
+  
+  LJ-force-linear-2sig ; since sizes can change, we store the linear constants for different sizes of atom pairs
+  LJ-PE-linear-2sig ; since sizes can change, we store the linear constants for different sizes of atom pairs
+  
   LJ-force-offset-2sig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
   LJ-PE-offset-2sig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
 ]
@@ -60,12 +62,23 @@ to mdc.setup-cutoff-linear-functions-1sig
   set LJ-PE-linear-1sig  ( [ r -> r * potential-slope + switch-potential * 10 ] )
 end
 
-to mdc.setup-offsets-2sig
-  set LJ-PE-offset-2sig n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
-  set LJ-force-offset-2sig n-values 41 [0] ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
+to mdc.setup-cutoff-linear-functions-2sig
+  set LJ-PE-linear-2sig n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
+  set LJ-force-linear-2sig n-values 41 [0] ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
+  
+  set LJ-PE-linear-2sig map  [s -> first mdc.cutoff-linear-constants-2sig s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
+  set LJ-force-linear-2sig map  [s -> last mdc.cutoff-linear-constants-2sig s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
+end
 
-  set LJ-PE-offset-2sig map  [s -> first mdc.LJ-potential-and-force-2sig cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
-  set LJ-force-offset-2sig map  [s -> last mdc.LJ-potential-and-force-2sig cutoff-dist s s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
+to-report mdc.cutoff-linear-constants-2sig [sig]
+  let switch-point cutoff-dist * 0.9
+  let third-power (sig / switch-point) * (sig / switch-point) * (sig / switch-point)
+  let sixth-power third-power * third-power
+  let switch-force (-6 * eps*4 * sixth-power / switch-point) * (2 * sixth-power - 1)
+  let switch-potential (eps*4 * (sixth-power * sixth-power - sixth-power))
+  let force-slope ((- switch-force) / (cutoff-dist - switch-point))
+  let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
+  report list [ r -> r * potential-slope + switch-potential * 10 ] [ r -> r * force-slope + switch-force * 10 ] 
 end
 
 
@@ -406,6 +419,10 @@ to-report mdc.LJ-potential-and-force-1sig [r]
   let switch-point cutoff-dist * 0.9
   ;; https://www.desmos.com/calculator/w302kgs0ed
   ifelse r <= switch-point [
+    ; The following is the Lennard-Jones potential and its derivative, just rearranged to optimize calculation speed.
+    ; The unoptimized calculation would look like this:
+    ; let force eps*4 * (-12 * (sig ^ 12 / r ^ 13) + 6 * (sig ^ 6 / r ^ 7))
+    ; let potential eps*4 * ((sig / r) ^ 12 - (sig / r) ^ 6)
     let third-power (sigma / r) * (sigma / r) * (sigma / r)
     let sixth-power third-power * third-power
     let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1)
@@ -413,9 +430,6 @@ to-report mdc.LJ-potential-and-force-1sig [r]
     report list potential force
   ]
   [
-    ;let force (r * force-slope + switch-force * 10)
-    ;let potential (r * potential-slope + switch-potential * 10)
-    
     let force ( runresult LJ-force-linear-1sig r )
     let potential (runresult LJ-PE-linear-1sig r )
     
@@ -444,15 +458,33 @@ end
 to-report mdc.LJ-potential-and-force-2sig [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
   let sig (sigma1 + sigma2) / 2
   
-  ; The following is the Lennard-Jones potential and its derivative, just rearranged to optimize calculation speed.
-  ; The unoptimized calculation would look like this:
-  ; let force eps*4 * (-12 * (sig ^ 12 / r ^ 13) + 6 * (sig ^ 6 / r ^ 7))
-  ; let potential eps*4 * ((sig / r) ^ 12 - (sig / r) ^ 6)
-  let third-power (sig / r) * (sig / r) * (sig / r)
-  let sixth-power third-power * third-power
-  let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1) - mdc.find-LJ-force-offset-2sig sig
-  let potential (eps*4 * (sixth-power * sixth-power - sixth-power)) - mdc.find-LJ-PE-offset-2sig sig
-  report list potential force
+  let switch-point cutoff-dist * 0.9
+  ;; https://www.desmos.com/calculator/w302kgs0ed
+  ifelse r <= switch-point [
+    ; The following is the Lennard-Jones potential and its derivative, just rearranged to optimize calculation speed.
+    ; The unoptimized calculation would look like this:
+    ; let force eps*4 * (-12 * (sig ^ 12 / r ^ 13) + 6 * (sig ^ 6 / r ^ 7))
+    ; let potential eps*4 * ((sig / r) ^ 12 - (sig / r) ^ 6)
+    let third-power (sigma / r) * (sigma / r) * (sigma / r)
+    let sixth-power third-power * third-power
+    let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1)
+    let potential (eps*4 * (sixth-power * sixth-power - sixth-power))
+    report list potential force
+  ]
+  [    
+    let force ( runresult (mdc.find-LJ-force-linear-2sig sig) r )
+    let potential ( runresult (mdc.find-LJ-PE-linear-2sig sig) r )
+    
+    report list potential force
+  ]
+end
+
+to-report mdc.find-LJ-force-linear-2sig [sig]
+  report item round (sig / .05) LJ-force-linear-2sig
+end
+
+to-report mdc.find-LJ-PE-linear-2sig [sig]
+  report item round (sig / .05) LJ-PE-linear-2sig
 end
 
 to-report mdc.calc-PE-2sig

@@ -27,6 +27,7 @@ atoms-own [
 to setup
   clear-all
   mdc.setup-constants
+  mdc.setup-cutoff-linear-functions-2sig
 
   mdc.setup-atoms-nrc atoms-per-row atoms-per-column
   mdc.pin-bottom-row
@@ -35,7 +36,6 @@ to setup
 
   vab.setup-links
 
-  mdc.setup-offsets-2sig
   aep.setup-messages
 
   reset-ticks

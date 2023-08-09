@@ -27,6 +27,7 @@ atoms-own [
 to setup
   clear-all
   mdc.setup-constants
+  mdc.setup-cutoff-linear-functions-2sig
   mdc.setup-atoms-nrc 5 5
   mdc.pin-bottom-row
   ask atoms [aep.init-atom]
@@ -36,7 +37,6 @@ to setup
 
   setup-interstitial
 
-  mdc.setup-offsets-2sig
   aep.setup-messages
 
   reset-ticks
