@@ -25,9 +25,6 @@ globals [
   
   LJ-force-linear-2sig ; since sizes can change, we store the linear constants for different sizes of atom pairs
   LJ-PE-linear-2sig ; since sizes can change, we store the linear constants for different sizes of atom pairs
-  
-  LJ-force-offset-2sig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
-  LJ-PE-offset-2sig  ; since sizes can change, we store the cutoff adjustment values for different sizes of atom pairs
 ]
 
 
@@ -50,6 +47,8 @@ to-report r-min
 end
 
 to mdc.setup-cutoff-linear-functions-1sig
+  ; function switches at 0.9 * cutoff-distance
+  ; calculates the force and potential at the switch-point, then makes a linear function from that point to the cutoff-distance
   let switch-point cutoff-dist * 0.9
   let third-power (sigma / switch-point) * (sigma / switch-point) * (sigma / switch-point)
   let sixth-power third-power * third-power
@@ -58,6 +57,8 @@ to mdc.setup-cutoff-linear-functions-1sig
   let force-slope ((- switch-force) / (cutoff-dist - switch-point))
   let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
   
+  ; this is basically y = m * x + b, with b being 10 * switch-value
+  ; because the y-intercept is 10 times the distance from the cutoff-distance as the switch-point
   set LJ-force-linear-1sig ( [ r -> r * force-slope + switch-force * 10 ] )
   set LJ-PE-linear-1sig  ( [ r -> r * potential-slope + switch-potential * 10 ] )
 end
@@ -71,6 +72,8 @@ to mdc.setup-cutoff-linear-functions-2sig
 end
 
 to-report mdc.cutoff-linear-constants-2sig [sig]
+  ; function switches at 0.9 * cutoff-distance
+  ; calculates the force and potential at the switch-point, then makes a linear function from that point to the cutoff-distance
   let switch-point cutoff-dist * 0.9
   let third-power (sig / switch-point) * (sig / switch-point) * (sig / switch-point)
   let sixth-power third-power * third-power
@@ -78,6 +81,9 @@ to-report mdc.cutoff-linear-constants-2sig [sig]
   let switch-potential (eps*4 * (sixth-power * sixth-power - sixth-power))
   let force-slope ((- switch-force) / (cutoff-dist - switch-point))
   let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
+  
+  ; this is basically y = m * x + b, with b being 10 * switch-value
+  ; because the y-intercept is 10 times the distance from the cutoff-distance as the switch-point
   report list [ r -> r * potential-slope + switch-potential * 10 ] [ r -> r * force-slope + switch-force * 10 ] 
 end
 
@@ -416,8 +422,10 @@ end
 ;; this next section is LJ for single sigma
 
 to-report mdc.LJ-potential-and-force-1sig [r]
-  let switch-point cutoff-dist * 0.9
+  ;; piecewise function in order to not have a discontinuous change at the cutoff-distance
+  ;; switches to a linear function that goes to 0 at the cutoff-distance, starting at 0.9 * cutoff-distance
   ;; https://www.desmos.com/calculator/w302kgs0ed
+  let switch-point cutoff-dist * 0.9
   ifelse r <= switch-point [
     ; The following is the Lennard-Jones potential and its derivative, just rearranged to optimize calculation speed.
     ; The unoptimized calculation would look like this:
@@ -430,6 +438,7 @@ to-report mdc.LJ-potential-and-force-1sig [r]
     report list potential force
   ]
   [
+    ; Switches to a linear function near the cutoff distance to avoid a discontinuity in the function
     let force ( runresult LJ-force-linear-1sig r )
     let potential (runresult LJ-PE-linear-1sig r )
     
@@ -458,6 +467,9 @@ end
 to-report mdc.LJ-potential-and-force-2sig [ r sigma1 sigma2] ; for the force, positive = attractive, negative = repulsive
   let sig (sigma1 + sigma2) / 2
   
+  ;; piecewise function in order to not have a discontinuous change at the cutoff-distance
+  ;; switches to a linear function that goes to 0 at the cutoff-distance, starting at 0.9 * cutoff-distance
+  ;; https://www.desmos.com/calculator/w302kgs0ed
   let switch-point cutoff-dist * 0.9
   ;; https://www.desmos.com/calculator/w302kgs0ed
   ifelse r <= switch-point [
@@ -465,25 +477,27 @@ to-report mdc.LJ-potential-and-force-2sig [ r sigma1 sigma2] ; for the force, po
     ; The unoptimized calculation would look like this:
     ; let force eps*4 * (-12 * (sig ^ 12 / r ^ 13) + 6 * (sig ^ 6 / r ^ 7))
     ; let potential eps*4 * ((sig / r) ^ 12 - (sig / r) ^ 6)
-    let third-power (sigma / r) * (sigma / r) * (sigma / r)
+    let third-power (sig / r) * (sig / r) * (sig / r)
     let sixth-power third-power * third-power
     let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1)
     let potential (eps*4 * (sixth-power * sixth-power - sixth-power))
     report list potential force
   ]
-  [    
+  [ 
+    ; Switches to a linear function near the cutoff distance to avoid a discontinuity in the function
     let force ( runresult (mdc.find-LJ-force-linear-2sig sig) r )
     let potential ( runresult (mdc.find-LJ-PE-linear-2sig sig) r )
-    
     report list potential force
   ]
 end
 
 to-report mdc.find-LJ-force-linear-2sig [sig]
+  ;; finds the appropriate anonymous procedure based on sigma
   report item round (sig / .05) LJ-force-linear-2sig
 end
 
 to-report mdc.find-LJ-PE-linear-2sig [sig]
+  ;; finds the appropriate anonymous procedure based on sigma
   report item round (sig / .05) LJ-PE-linear-2sig
 end
 
@@ -500,15 +514,6 @@ to-report mdc.calc-pair-PE-with-2sig [other-atom]
   let PE-and-force mdc.LJ-potential-and-force-2sig (distance other-atom) sigma  [sigma] of other-atom
   report first PE-and-force
 end
-
-to-report mdc.find-LJ-force-offset-2sig [sig]
-  report item round (sig / .05) LJ-force-offset-2sig
-end
-
-to-report mdc.find-LJ-PE-offset-2sig [sig]
-  report item round (sig / .05) LJ-PE-offset-2sig
-end
-
 
 
 ;; velocity verlet used by both

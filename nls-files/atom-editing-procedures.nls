@@ -113,7 +113,8 @@ end
 to aep.change-atom-size [change]
   ask atoms with [selected?] [
     set sigma max list 0.2 (sigma + change)
-    set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
+    set mass sigma ; mass is proportional to radius
+    ;set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
     aep.set-size
   ]
 end
