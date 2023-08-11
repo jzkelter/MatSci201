@@ -173,8 +173,8 @@ SLIDER
 temp
 temp
 0
-.4
-0.03
+.2
+0.02
 .01
 1
 NIL

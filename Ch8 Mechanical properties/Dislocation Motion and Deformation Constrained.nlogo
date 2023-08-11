@@ -146,7 +146,7 @@ CHOOSER
 force-mode
 force-mode
 "Shear" "Tension" "Compression"
-1
+2
 
 SLIDER
 15
@@ -156,8 +156,8 @@ SLIDER
 temp
 temp
 0
-.4
-0.005
+.2
+0.02
 .001
 1
 NIL
@@ -172,7 +172,7 @@ force-applied
 force-applied
 0
 30
-0.0
+30.0
 .1
 1
 N
@@ -489,7 +489,7 @@ SWITCH
 203
 create-floor-and-ceiling?
 create-floor-and-ceiling?
-0
+1
 1
 -1000
 
