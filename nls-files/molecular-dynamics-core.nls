@@ -67,11 +67,11 @@ to mdc.setup-cutoff-linear-functions-2sig
   set LJ-PE-linear-2sig n-values 41 [0]  ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
   set LJ-force-linear-2sig n-values 41 [0] ; initialize to zeros so zero as cutoff value will be used in the calculation on next line
   
-  set LJ-PE-linear-2sig map  [s -> first mdc.cutoff-linear-constants-2sig s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
-  set LJ-force-linear-2sig map  [s -> last mdc.cutoff-linear-constants-2sig s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
+  set LJ-PE-linear-2sig map  [s -> first mdc.piecewise-linear-cutoffs-2sig s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ potential various sigma values
+  set LJ-force-linear-2sig map  [s -> last mdc.piecewise-linear-cutoffs-2sig s] (range 0 2.05 .05)  ; calculate cutoff values to adjust LJ for various sigma values
 end
 
-to-report mdc.cutoff-linear-constants-2sig [sig]
+to-report mdc.piecewise-linear-cutoffs-2sig [sig]
   ; function switches at 0.9 * cutoff-distance
   ; calculates the force and potential at the switch-point, then makes a linear function from that point to the cutoff-distance
   let switch-point cutoff-dist * 0.9
