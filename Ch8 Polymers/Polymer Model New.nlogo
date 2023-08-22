@@ -1,43 +1,47 @@
 breed [monomers monomer]
 breed [initiators initiator]
-
-turtles-own [
-  chain-id
-  bonded?
-]
+breed [bonded-initiators bonded-initiator]
 
 
 to setup
   clear-all
+  setup-default-shapes
   setup-agents
   reset-ticks
 end
 
 
-to setup-agents
+to setup-default-shapes
   set-default-shape monomers "circle"
-  create-monomers num-monomers [
-    set bonded? false
-    set color blue
-    set heading 0
-    random-without-overlapping
+  set-default-shape initiators "triangle"
+  set-default-shape bonded-initiators "square"
+end
+
+to setup-agents
+  create-turtles num-monomers [
+    change-to-monomer
+    move-to one-of patches with [not any? turtles-here]
   ]
 
-  set-default-shape initiators "triangle"
-  let current-chain-id 1
-  create-initiators num-initiators [
-    set bonded? false
-    set color red
-    set heading 0
-    random-without-overlapping
-    set chain-id current-chain-id
-    set current-chain-id current-chain-id + 1
+  create-turtles num-initiators [
+    change-to-initiator
+    move-to one-of patches with [not any? turtles-here]
   ]
 end
 
-to random-without-overlapping
-  setxy random-pxcor random-pycor
-  while [any? other turtles-here] [setxy random-pxcor random-pycor]
+to change-to-monomer
+  set breed monomers
+  set color blue
+end
+
+to change-to-initiator
+  set breed initiators
+  set color red
+end
+
+to change-to-bonded-initiator
+  set breed bonded-initiators
+  set color green
 end
 
 
@@ -50,26 +54,48 @@ end
 
 
 to interact
-  ask initiators with [not bonded?] [
-    if any? (monomers-on neighbors4) with [not bonded?] [
-      ask one-of (monomers-on neighbors4) with [not bonded?] [
-        set chain-id [chain-id] of myself
-        set bonded? true
-        ;create-links-with myself
-      ]
-      set bonded? true
+  ask initiators [
+    if any? (monomers-on neighbors) with [count link-neighbors = 0] [
+      ifelse count link-neighbors = 0 [change-to-bonded-initiator] [change-to-monomer]
+      let new-bonded-monomer one-of (monomers-on neighbors) with [count link-neighbors = 0]
+      create-link-with new-bonded-monomer
+      ask new-bonded-monomer [change-to-initiator]
     ]
   ]
-
-
 end
 
-to move
+
+to move  ;; turtle procedure
+  ;; choose a heading, and before moving the monomer,
+  ;; checks if the move would break or cross the chain
   ask turtles [
     face one-of neighbors4
-    if not [any? turtles-here] of patch-ahead 1 [
-      fd 1
-    ]
+    if not breaking-chain? and not crossing-chain? [ fd 1 ]
+  ]
+end
+
+to-report breaking-chain?
+  ; if my link-neighbors are not all on the neighbors of the patch-ahead, it would break the chain
+  let neighbors-of-patch-ahead [neighbors] of patch-ahead 1
+  report any? link-neighbors with [not member? patch-here neighbors-of-patch-ahead]
+end
+
+to-report crossing-chain?
+  report [any? turtles-here] of patch-ahead 1
+end
+
+
+to add-monomers
+  create-turtles num-add [
+    change-to-monomer
+    move-to one-of patches with [not any? turtles-here]
+  ]
+end
+
+to add-initiators
+  create-turtles num-add [
+    change-to-initiator
+    move-to one-of patches with [not any? turtles-here]
   ]
 end
 @#$#@#$#@
@@ -101,9 +127,9 @@ ticks
 30.0
 
 BUTTON
-128
+5
 107
-191
+68
 140
 NIL
 setup
@@ -118,10 +144,10 @@ NIL
 1
 
 BUTTON
-82
-242
-155
-275
+75
+107
+138
+140
 go once
 go
 NIL
@@ -135,10 +161,10 @@ NIL
 0
 
 BUTTON
-87
-288
-150
-321
+143
+107
+206
+140
 NIL
 go
 T
@@ -153,14 +179,14 @@ NIL
 
 SLIDER
 22
-15
+22
 194
-48
+55
 num-monomers
 num-monomers
 1
-100
-50.0
+500
+200.0
 1
 1
 NIL
@@ -168,9 +194,9 @@ HORIZONTAL
 
 SLIDER
 21
-57
+64
 193
-90
+97
 num-initiators
 num-initiators
 1
@@ -180,6 +206,55 @@ num-initiators
 1
 NIL
 HORIZONTAL
+
+SLIDER
+21
+154
+193
+187
+num-add
+num-add
+1
+50
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+48
+200
+160
+233
+NIL
+add-monomers
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
+
+BUTTON
+55
+242
+156
+275
+NIL
+add-initiators
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
