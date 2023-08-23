@@ -1,6 +1,7 @@
 breed [monomers monomer]
+breed [radical-monomers radical-monomer]
 breed [initiators initiator]
-breed [bonded-initiators bonded-initiator]
+breed [radical-initiators radical-initiator]
 
 
 to setup
@@ -13,8 +14,9 @@ end
 
 to setup-default-shapes
   set-default-shape monomers "circle"
-  set-default-shape initiators "triangle"
-  set-default-shape bonded-initiators "square"
+  set-default-shape radical-monomers "circle"
+  set-default-shape initiators "square"
+  set-default-shape radical-initiators "square"
 end
 
 to setup-agents
@@ -24,7 +26,7 @@ to setup-agents
   ]
 
   create-turtles num-initiators [
-    change-to-initiator
+    change-to-radical-initiator
     move-to one-of patches with [not any? turtles-here]
   ]
 end
@@ -34,14 +36,19 @@ to change-to-monomer
   set color blue
 end
 
-to change-to-initiator
-  set breed initiators
-  set color red
+to change-to-radical-monomer
+  set breed radical-monomers
+  set color green
 end
 
-to change-to-bonded-initiator
-  set breed bonded-initiators
-  set color green
+to change-to-initiator
+  set breed initiators
+  set color yellow
+end
+
+to change-to-radical-initiator
+  set breed radical-initiators
+  set color red
 end
 
 
@@ -54,13 +61,54 @@ end
 
 
 to interact
-  ask initiators [
-    if any? (monomers-on neighbors) with [count link-neighbors = 0] [
-      ifelse count link-neighbors = 0 [change-to-bonded-initiator] [change-to-monomer]
-      let new-bonded-monomer one-of (monomers-on neighbors) with [count link-neighbors = 0]
-      create-link-with new-bonded-monomer
-      ask new-bonded-monomer [change-to-initiator]
+  ask turtles [
+    (ifelse breed = radical-initiators [
+      (ifelse any? (monomers-on neighbors) with [count link-neighbors = 0] [
+        ;; radical-initiator and monomer meet, initiation
+        change-to-initiator
+        let new-monomer one-of (monomers-on neighbors) with [count link-neighbors = 0]
+        create-link-with new-monomer
+        ask new-monomer [change-to-radical-monomer]
+      ]
+
+        any? (radical-initiators-on neighbors) [
+          ;; two radical-initiators meet, combination termination
+          change-to-initiator
+          let new-initiator one-of (radical-initiators-on neighbors)
+          create-link-with new-initiator
+          ask new-initiator [change-to-initiator]
+        ]
+
+        any? (radical-monomers-on neighbors) [
+          ;; radical-initiator and radical-monomer meet, combination termination
+          change-to-initiator
+          let new-monomer one-of (radical-monomers-on neighbors)
+          create-link-with new-monomer
+          ask new-monomer [change-to-monomer]
+        ]
+        )
     ]
+
+
+      breed = radical-monomers [
+        (ifelse any? (monomers-on neighbors4) with [count link-neighbors = 0] [
+          ;; radical-monomer and monomer meet, propagation
+          change-to-monomer
+          let new-monomer one-of (monomers-on neighbors4) with [count link-neighbors = 0]
+          create-link-with new-monomer
+          ask new-monomer [change-to-radical-monomer]
+        ]
+
+          any? (radical-monomers-on neighbors) [
+            ;; two radical-monomers meet, combination termination
+            change-to-monomer
+            let new-monomer one-of (radical-monomers-on neighbors)
+            create-link-with new-monomer
+            ask new-monomer [change-to-monomer]
+          ]
+          )
+      ]
+      )
   ]
 end
 
@@ -92,9 +140,9 @@ to add-monomers
   ]
 end
 
-to add-initiators
+to add-radical-initiators
   create-turtles num-add [
-    change-to-initiator
+    change-to-radical-initiator
     move-to one-of patches with [not any? turtles-here]
   ]
 end
@@ -216,7 +264,7 @@ num-add
 num-add
 1
 50
-5.0
+25.0
 1
 1
 NIL
@@ -240,12 +288,12 @@ NIL
 0
 
 BUTTON
-55
-242
-156
-275
+33
+241
+173
+274
 NIL
-add-initiators
+add-radical-initiators
 NIL
 1
 T
