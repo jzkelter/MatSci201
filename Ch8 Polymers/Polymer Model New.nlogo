@@ -100,10 +100,11 @@ to interact
         ]
 
           any? (radical-monomers-on neighbors) [
-            ;; two radical-monomers meet, combination termination
+            ;; two radical-monomers meet, combination or disproportionation termination
             change-to-monomer
             let new-monomer one-of (radical-monomers-on neighbors)
-            create-link-with new-monomer
+            ;create-link-with new-monomer
+            if random-float 1 <= disproportionation-prob [create-link-with new-monomer]
             ask new-monomer [change-to-monomer]
           ]
           )
@@ -303,6 +304,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+20
+291
+194
+324
+disproportionation-prob
+disproportionation-prob
+0
+100
+70.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
