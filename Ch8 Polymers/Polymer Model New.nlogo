@@ -1,5 +1,6 @@
 breed [monomers monomer]
 breed [radical-monomers radical-monomer]
+breed [saturated-monomers saturated-monomer]
 breed [initiators initiator]
 breed [radical-initiators radical-initiator]
 
@@ -15,6 +16,7 @@ end
 to setup-default-shapes
   set-default-shape monomers "circle"
   set-default-shape radical-monomers "circle"
+  set-default-shape saturated-monomers "circle"
   set-default-shape initiators "square"
   set-default-shape radical-initiators "square"
 end
@@ -41,6 +43,11 @@ to change-to-radical-monomer
   set color green
 end
 
+to change-to-saturated-monomer
+  set breed saturated-monomers
+  set color violet
+end
+
 to change-to-initiator
   set breed initiators
   set color yellow
@@ -54,73 +61,105 @@ end
 
 
 to go
-  interact
-  move
+  ask turtles [interact]
+  ask turtles [move]
   tick
 end
 
 
-to interact
-  ask turtles [
-    (ifelse breed = radical-initiators [
-      (ifelse any? (monomers-on neighbors) with [count link-neighbors = 0] [
-        ;; radical-initiator and monomer meet, initiation
+to old-interact
+  (ifelse breed = radical-initiators [
+    (ifelse any? (monomers-on neighbors4) with [count link-neighbors = 0] [
+      ;; radical-initiator and monomer meet, initiation
+      change-to-initiator
+      let new-monomer one-of (monomers-on neighbors4) with [count link-neighbors = 0]
+      create-link-with new-monomer
+      ask new-monomer [change-to-radical-monomer]
+    ]
+
+      any? (radical-initiators-on neighbors4) [
+        ;; two radical-initiators meet, combination termination
         change-to-initiator
-        let new-monomer one-of (monomers-on neighbors) with [count link-neighbors = 0]
+        let new-initiator one-of (radical-initiators-on neighbors)
+        create-link-with new-initiator
+        ask new-initiator [change-to-initiator]
+      ]
+
+      any? (radical-monomers-on neighbors4) [
+        ;; radical-initiator and radical-monomer meet, combination termination
+        change-to-initiator
+        let new-monomer one-of (radical-monomers-on neighbors)
+        create-link-with new-monomer
+        ask new-monomer [change-to-monomer]
+      ]
+      )
+  ]
+
+    breed = radical-monomers [
+      (ifelse any? (monomers-on neighbors4) with [count link-neighbors = 0] [
+        ;; radical-monomer and monomer meet, propagation
+        change-to-monomer
+        let new-monomer one-of (monomers-on neighbors4) with [count link-neighbors = 0]
         create-link-with new-monomer
         ask new-monomer [change-to-radical-monomer]
       ]
 
-        any? (radical-initiators-on neighbors) [
-          ;; two radical-initiators meet, combination termination
-          change-to-initiator
-          let new-initiator one-of (radical-initiators-on neighbors)
-          create-link-with new-initiator
-          ask new-initiator [change-to-initiator]
-        ]
-
-        any? (radical-monomers-on neighbors) [
-          ;; radical-initiator and radical-monomer meet, combination termination
-          change-to-initiator
+        any? (radical-monomers-on neighbors4) [
+          ;; two radical-monomers meet, combination or disproportionation termination
+          change-to-monomer
           let new-monomer one-of (radical-monomers-on neighbors)
-          create-link-with new-monomer
+          ;create-link-with new-monomer
+          if random-float 1 >= disproportionation-prob [create-link-with new-monomer]
           ask new-monomer [change-to-monomer]
         ]
         )
     ]
+    )
+end
 
 
-      breed = radical-monomers [
-        (ifelse any? (monomers-on neighbors4) with [count link-neighbors = 0] [
-          ;; radical-monomer and monomer meet, propagation
-          change-to-monomer
-          let new-monomer one-of (monomers-on neighbors4) with [count link-neighbors = 0]
-          create-link-with new-monomer
-          ask new-monomer [change-to-radical-monomer]
-        ]
 
-          any? (radical-monomers-on neighbors) [
-            ;; two radical-monomers meet, combination or disproportionation termination
-            change-to-monomer
-            let new-monomer one-of (radical-monomers-on neighbors)
-            ;create-link-with new-monomer
-            if random-float 1 <= disproportionation-prob [create-link-with new-monomer]
-            ask new-monomer [change-to-monomer]
-          ]
-          )
-      ]
-      )
+to interact
+  if breed = radical-initiators or breed = radical-monomers [
+    let bondable-neighbors (turtles-on neighbors4) with [(breed = monomers and count link-neighbors < 2) or breed = radical-monomers or breed = radical-initiators]
+    if any? bondable-neighbors [
+      change-breed-myself
+      let new-neighbor one-of bondable-neighbors
+      create-link-with new-neighbor
+      ask new-neighbor [determine-link-and-change-breed]
+    ]
   ]
 end
+
+to change-breed-myself
+  (ifelse breed = radical-initiators [change-to-initiator]
+    breed = radical-monomers [change-to-monomer]
+  )
+end
+
+to determine-link-and-change-breed
+  (ifelse breed = radical-initiators [change-to-initiator]
+   breed = radical-monomers [
+      if [breed] of myself = initiators [change-to-monomer]
+      if [breed] of myself = monomers [
+        ifelse random-float 1 <= disproportionation-prob [
+          ask link-with myself [die]
+          change-to-saturated-monomer
+        ]
+        [change-to-monomer]
+      ]
+    ]
+    breed = monomers and count link-neighbors = 0 [change-to-radical-monomer]
+    )
+end
+
 
 
 to move  ;; turtle procedure
   ;; choose a heading, and before moving the monomer,
   ;; checks if the move would break or cross the chain
-  ask turtles [
-    face one-of neighbors4
-    if not breaking-chain? and not crossing-chain? [ fd 1 ]
-  ]
+  face one-of neighbors4
+  if not breaking-chain? and not crossing-chain? [ fd 1 ]
 end
 
 to-report breaking-chain?
@@ -235,7 +274,7 @@ num-monomers
 num-monomers
 1
 500
-200.0
+300.0
 1
 1
 NIL
@@ -249,8 +288,8 @@ SLIDER
 num-initiators
 num-initiators
 1
-10
-5.0
+20
+10.0
 1
 1
 NIL
@@ -265,7 +304,7 @@ num-add
 num-add
 1
 50
-25.0
+8.0
 1
 1
 NIL
@@ -314,7 +353,7 @@ disproportionation-prob
 disproportionation-prob
 0
 100
-70.0
+100.0
 1
 1
 NIL
