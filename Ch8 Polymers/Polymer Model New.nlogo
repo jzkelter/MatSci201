@@ -4,9 +4,12 @@ breed [saturated-monomers saturated-monomer]
 breed [initiators initiator]
 breed [radical-initiators radical-initiator]
 
+turtles-own [chain-id ]
+globals [current-chain-id]
 
 to setup
   clear-all
+  set current-chain-id 1
   setup-default-shapes
   setup-agents
   reset-ticks
@@ -30,6 +33,8 @@ to setup-agents
   create-turtles num-initiators [
     change-to-radical-initiator
     move-to one-of patches with [not any? turtles-here]
+    set chain-id current-chain-id
+    set current-chain-id current-chain-id + 1
   ]
 end
 
@@ -121,6 +126,7 @@ end
 
 to interact
   if breed = radical-initiators or breed = radical-monomers [
+    ;; neighbors4 here because when a diagonal link is created, if there is a link between the two adjacent turtles, the links can get crossed
     let bondable-neighbors (turtles-on neighbors4) with [(breed = monomers and count link-neighbors < 2) or breed = radical-monomers or breed = radical-initiators]
     if any? bondable-neighbors [
       change-breed-myself
@@ -184,6 +190,8 @@ to add-radical-initiators
   create-turtles num-add [
     change-to-radical-initiator
     move-to one-of patches with [not any? turtles-here]
+    set chain-id current-chain-id
+    set current-chain-id current-chain-id + 1
   ]
 end
 @#$#@#$#@
