@@ -9,6 +9,10 @@ turtles-own [
   molecular-weight
 ]
 
+initiators-own [
+ track-mw?
+]
+
 globals [
   current-chain-id
   number-average-molecular-weight
@@ -63,6 +67,7 @@ end
 to change-to-initiator
   set breed initiators
   set color yellow
+  set track-mw? true
 end
 
 to change-to-radical-initiator
@@ -97,12 +102,14 @@ to bond-and-change-breed
       create-link-with myself
       set chain-id [chain-id] of myself
       change-to-initiator
+      set track-mw? false
     ]
     breed = radical-monomers [
       if [breed] of myself = radical-initiators [
         create-link-with myself
         let id1 [chain-id] of myself
         let id2 chain-id
+        ask initiators with [chain-id = id2] [set track-mw? false]
         ask turtles with [chain-id = id2] [set chain-id id1]
         change-to-monomer
       ]
@@ -113,6 +120,7 @@ to bond-and-change-breed
           create-link-with myself
           let id1 [chain-id] of myself
           let id2 chain-id
+          ask initiators with [chain-id = id2] [set track-mw? false]
           ask turtles with [chain-id = id2] [set chain-id id1]
           change-to-monomer
         ]
@@ -153,13 +161,9 @@ end
 
 
 to calculate-molecular-weights
-  let counted-chain-ids (list)
-  ask (turtle-set initiators radical-initiators) [
-    if not member? chain-id counted-chain-ids [
-      let c-id chain-id
-      set molecular-weight count turtles with [chain-id = c-id]
-      set counted-chain-ids insert-item 0 counted-chain-ids c-id
-    ]
+  ask initiators with [track-mw?] [
+    let id chain-id
+    set molecular-weight count turtles with [chain-id = id]
   ]
 end
 
@@ -282,7 +286,7 @@ num-initiators
 num-initiators
 1
 100
-30.0
+29.0
 1
 1
 NIL
@@ -346,7 +350,7 @@ disproportionation-prob
 disproportionation-prob
 0
 100
-100.0
+0.0
 1
 1
 NIL
@@ -364,11 +368,11 @@ Number of Molecules
 100.0
 0.0
 20.0
-true
+false
 false
 "" ""
 PENS
-"default" 1.0 1 -16777216 true "set-histogram-num-bars 10" "histogram [molecular-weight] of turtles with [molecular-weight > 1]"
+"default" 1.0 1 -16777216 true "set-histogram-num-bars 10" "histogram [molecular-weight] of initiators with [track-mw?]"
 
 @#$#@#$#@
 ## WHAT IS IT?
