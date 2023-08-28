@@ -4,8 +4,15 @@ breed [saturated-monomers saturated-monomer]
 breed [initiators initiator]
 breed [radical-initiators radical-initiator]
 
-turtles-own [chain-id ]
-globals [current-chain-id]
+turtles-own [
+  chain-id
+  molecular-weight
+]
+
+globals [
+  current-chain-id
+  number-average-molecular-weight
+]
 
 to setup
   clear-all
@@ -68,97 +75,63 @@ end
 to go
   ask turtles [interact]
   ask turtles [move]
+  calculate-molecular-weights
   tick
 end
-
-
-to old-interact
-  (ifelse breed = radical-initiators [
-    (ifelse any? (monomers-on neighbors4) with [count link-neighbors = 0] [
-      ;; radical-initiator and monomer meet, initiation
-      change-to-initiator
-      let new-monomer one-of (monomers-on neighbors4) with [count link-neighbors = 0]
-      create-link-with new-monomer
-      ask new-monomer [change-to-radical-monomer]
-    ]
-
-      any? (radical-initiators-on neighbors4) [
-        ;; two radical-initiators meet, combination termination
-        change-to-initiator
-        let new-initiator one-of (radical-initiators-on neighbors)
-        create-link-with new-initiator
-        ask new-initiator [change-to-initiator]
-      ]
-
-      any? (radical-monomers-on neighbors4) [
-        ;; radical-initiator and radical-monomer meet, combination termination
-        change-to-initiator
-        let new-monomer one-of (radical-monomers-on neighbors)
-        create-link-with new-monomer
-        ask new-monomer [change-to-monomer]
-      ]
-      )
-  ]
-
-    breed = radical-monomers [
-      (ifelse any? (monomers-on neighbors4) with [count link-neighbors = 0] [
-        ;; radical-monomer and monomer meet, propagation
-        change-to-monomer
-        let new-monomer one-of (monomers-on neighbors4) with [count link-neighbors = 0]
-        create-link-with new-monomer
-        ask new-monomer [change-to-radical-monomer]
-      ]
-
-        any? (radical-monomers-on neighbors4) [
-          ;; two radical-monomers meet, combination or disproportionation termination
-          change-to-monomer
-          let new-monomer one-of (radical-monomers-on neighbors)
-          ;create-link-with new-monomer
-          if random-float 1 >= disproportionation-prob [create-link-with new-monomer]
-          ask new-monomer [change-to-monomer]
-        ]
-        )
-    ]
-    )
-end
-
 
 
 to interact
   if breed = radical-initiators or breed = radical-monomers [
     ;; neighbors4 here because when a diagonal link is created, if there is a link between the two adjacent turtles, the links can get crossed
-    let bondable-neighbors (turtles-on neighbors4) with [(breed = monomers and count link-neighbors < 2) or breed = radical-monomers or breed = radical-initiators]
+    let bondable-neighbors (turtles-on neighbors4) with [(breed = monomers and count link-neighbors = 0) or breed = radical-monomers or breed = radical-initiators]
     if any? bondable-neighbors [
+      ask one-of bondable-neighbors [bond-and-change-breed]
       change-breed-myself
-      let new-neighbor one-of bondable-neighbors
-      create-link-with new-neighbor
-      ask new-neighbor [determine-link-and-change-breed]
     ]
   ]
 end
 
-to change-breed-myself
-  (ifelse breed = radical-initiators [change-to-initiator]
-    breed = radical-monomers [change-to-monomer]
+to bond-and-change-breed
+  (ifelse
+    breed = radical-initiators [
+      create-link-with myself
+      set chain-id [chain-id] of myself
+      change-to-initiator
+    ]
+    breed = radical-monomers [
+      if [breed] of myself = radical-initiators [
+        create-link-with myself
+        let id1 [chain-id] of myself
+        let id2 chain-id
+        ask turtles with [chain-id = id2] [set chain-id id1]
+        change-to-monomer
+      ]
+      if [breed] of myself = radical-monomers [
+        ifelse random-float 1 <= disproportionation-prob [
+          change-to-saturated-monomer
+        ] [
+          create-link-with myself
+          let id1 [chain-id] of myself
+          let id2 chain-id
+          ask turtles with [chain-id = id2] [set chain-id id1]
+          change-to-monomer
+        ]
+      ]
+    ]
+    breed = monomers and count link-neighbors = 0 [
+      create-link-with myself
+      set chain-id [chain-id] of myself
+      change-to-radical-monomer
+    ]
   )
 end
 
-to determine-link-and-change-breed
-  (ifelse breed = radical-initiators [change-to-initiator]
-   breed = radical-monomers [
-      if [breed] of myself = initiators [change-to-monomer]
-      if [breed] of myself = monomers [
-        ifelse random-float 1 <= disproportionation-prob [
-          ask link-with myself [die]
-          change-to-saturated-monomer
-        ]
-        [change-to-monomer]
-      ]
-    ]
-    breed = monomers and count link-neighbors = 0 [change-to-radical-monomer]
-    )
+to change-breed-myself
+  (ifelse
+    breed = radical-initiators [change-to-initiator]
+    breed = radical-monomers [change-to-monomer]
+  )
 end
-
 
 
 to move  ;; turtle procedure
@@ -176,6 +149,18 @@ end
 
 to-report crossing-chain?
   report [any? turtles-here] of patch-ahead 1
+end
+
+
+to calculate-molecular-weights
+  let counted-chain-ids (list)
+  ask (turtle-set initiators radical-initiators) [
+    if not member? chain-id counted-chain-ids [
+      let c-id chain-id
+      set molecular-weight count turtles with [chain-id = c-id]
+      set counted-chain-ids insert-item 0 counted-chain-ids c-id
+    ]
+  ]
 end
 
 
@@ -281,8 +266,8 @@ SLIDER
 num-monomers
 num-monomers
 1
-500
-300.0
+1000
+1000.0
 1
 1
 NIL
@@ -296,8 +281,8 @@ SLIDER
 num-initiators
 num-initiators
 1
-20
-10.0
+100
+30.0
 1
 1
 NIL
@@ -311,8 +296,8 @@ SLIDER
 num-add
 num-add
 1
-50
-8.0
+100
+100.0
 1
 1
 NIL
@@ -366,6 +351,24 @@ disproportionation-prob
 1
 NIL
 HORIZONTAL
+
+PLOT
+731
+106
+1000
+345
+Molecular Weight Distribution
+Molecular Weight
+Number of Molecules
+0.0
+100.0
+0.0
+20.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "set-histogram-num-bars 10" "histogram [molecular-weight] of turtles with [molecular-weight > 1]"
 
 @#$#@#$#@
 ## WHAT IS IT?
