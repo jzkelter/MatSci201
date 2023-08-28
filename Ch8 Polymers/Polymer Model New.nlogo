@@ -187,11 +187,11 @@ end
 GRAPHICS-WINDOW
 210
 10
-698
-499
+1118
+919
 -1
 -1
-6.0
+5.0
 1
 5
 1
@@ -202,9 +202,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-79
+179
 0
-79
+179
 0
 0
 1
@@ -270,8 +270,8 @@ SLIDER
 num-monomers
 num-monomers
 1
-1000
-1000.0
+10000
+7580.0
 1
 1
 NIL
@@ -285,8 +285,8 @@ SLIDER
 num-initiators
 num-initiators
 1
-100
-29.0
+1000
+100.0
 1
 1
 NIL
@@ -357,10 +357,10 @@ NIL
 HORIZONTAL
 
 PLOT
-731
-106
-1000
-345
+1146
+19
+1415
+258
 Molecular Weight Distribution
 Molecular Weight
 Number of Molecules
@@ -368,7 +368,7 @@ Number of Molecules
 100.0
 0.0
 20.0
-false
+true
 false
 "" ""
 PENS
