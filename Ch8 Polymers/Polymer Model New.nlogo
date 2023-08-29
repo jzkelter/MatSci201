@@ -1,8 +1,8 @@
 breed [unsaturated-mers unsaturated-mer]
 breed [radical-mers radical-mer]
 breed [saturated-mers saturated-mer]
-breed [initiators initiator]
 breed [radical-initiators radical-initiator]
+breed [initiators initiator]
 
 turtles-own [
   chain-id ;; identification number for each polymer for calculating molecular weight
@@ -16,8 +16,8 @@ initiators-own [
 globals [
   current-chain-id ;; chain-id given to next created radical-initiator
 
-  number-average-molecular-weight ;; should I have the formula here
-  weight-average-molecular-weight ;; same
+  total-molecular-weight
+  num-polymers
 ]
 
 to setup
@@ -55,32 +55,27 @@ end
 
 to change-to-unsaturated-mer
   set breed unsaturated-mers
-  set color sky + 1
   set color [100 143 255]
 end
 
 to change-to-radical-mer
   set breed radical-mers
-  set color turquoise
   set color [220 38 127]
 end
 
 to change-to-saturated-mer
   set breed saturated-mers
-  set color blue
   set color [120 94 240]
 end
 
 to change-to-initiator
   set breed initiators
-  set color yellow
   set color [255 176 0]
   set track-mw? true
 end
 
 to change-to-radical-initiator
   set breed radical-initiators
-  set color red
   set color [254 97 0]
 end
 
@@ -152,10 +147,8 @@ end
 
 
 to move  ;; turtle procedure
-  ;; choose a heading, and before moving the mer,
-  ;; checks if the move would break or cross the chain
-  face one-of neighbors4
-  if not breaking-chain? and self-excluding? [ fd 1 ]
+  face one-of neighbors ;; choose a heading, and before moving the mer,
+  if not breaking-chain? and self-excluding? [ move-to patch-ahead 1 ] ;; checks if the move would break or cross the chain
 end
 
 to-report breaking-chain?
@@ -174,15 +167,27 @@ to calculate-molecular-weights
     let my-id chain-id
     set molecular-weight count turtles with [chain-id = my-id]
   ]
+
+  set total-molecular-weight sum [molecular-weight] of initiators with [track-mw?]
+  set num-polymers count initiators with [track-mw?]
 end
 
 
 to-report num-avg-molecular-weight
-
+  report total-molecular-weight / num-polymers
 end
 
 to-report wgt-avg-molecular-weight
+  let tot 0
+  ask initiators with [track-mw?] [
+    let weight-fraction molecular-weight / total-molecular-weight
+    set tot tot + weight-fraction * molecular-weight
+  ]
+  report tot
+end
 
+to-report polydispersity-index
+  report wgt-avg-molecular-weight / num-avg-molecular-weight
 end
 
 
@@ -388,9 +393,9 @@ Number of Molecules
 0.0
 true
 false
-"set-plot-x-range 0 (round (num-monomers * 0.1))\nset-plot-y-range 0 (round (num-radical-initiators * 0.75))" ";if (any? initiators) and (ticks mod 100) = 0 [\n;set-plot-x-range 0 ([molecular-weight] of max-one-of initiators [molecular-weight])\n;]"
+"set-plot-x-range 0 (round (num-monomers * 0.1))\nset-plot-y-range 0 (round (num-radical-initiators * 0.75))" "if (any? initiators) and (ticks mod 100) = 0 [\nset-plot-x-range 0 ([molecular-weight] of max-one-of initiators [molecular-weight])\n]"
 PENS
-"default" 1.0 1 -16777216 true "set-histogram-num-bars 10" "histogram [molecular-weight] of initiators with [track-mw?]"
+"default" 1.0 1 -16777216 true "set-histogram-num-bars 8" "histogram [molecular-weight] of initiators with [track-mw?]"
 
 TEXTBOX
 41
@@ -470,6 +475,17 @@ MONITOR
 385
 Weight Average Molecular Weight
 wgt-avg-molecular-weight
+5
+1
+11
+
+MONITOR
+718
+401
+844
+446
+Polydispersity Index
+polydispersity-index
 5
 1
 11
