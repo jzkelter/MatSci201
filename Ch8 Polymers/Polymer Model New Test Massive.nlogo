@@ -5,24 +5,22 @@ breed [initiators initiator]
 breed [radical-initiators radical-initiator]
 
 turtles-own [
-  chain-id ;; identification number for each polymer for calculating molecular weight
+  chain-id
+  molecular-weight
 ]
 
 initiators-own [
-  molecular-weight ;; molecular weight of polymer the initiator is part of
-  track-mw? ;; boolean for whether or not molecular weight is counted in plot; to avoid double counting polymers with initiators on both ends
+ track-mw?
 ]
 
 globals [
-  current-chain-id ;; chain-id given to next created radical-initiator
-
-  number-average-molecular-weight ;; should I have the formula here
-  weight-average-molecular-weight ;; same
+  current-chain-id
+  number-average-molecular-weight
 ]
 
 to setup
   clear-all
-  set current-chain-id 1 ;; start chain-ids at 1
+  set current-chain-id 1
   setup-default-shapes
   setup-agents
   reset-ticks
@@ -33,13 +31,11 @@ to setup-default-shapes
   set-default-shape monomers "circle"
   set-default-shape radical-monomers "circle"
   set-default-shape saturated-monomers "circle"
-
   set-default-shape initiators "square"
   set-default-shape radical-initiators "square"
 end
 
 to setup-agents
-  ;; create agents on unoccupied patches
   create-turtles num-monomers [
     change-to-monomer
     move-to one-of patches with [not any? turtles-here]
@@ -149,12 +145,12 @@ end
 to move  ;; turtle procedure
   ;; choose a heading, and before moving the monomer,
   ;; checks if the move would break or cross the chain
-  face one-of neighbors
+  face one-of neighbors4
   if not breaking-chain? and not crossing-chain? [ fd 1 ]
 end
 
 to-report breaking-chain?
-  ;; if my link-neighbors are not all on the neighbors of the patch-ahead, it would break the chain
+  ; if my link-neighbors are not all on the neighbors of the patch-ahead, it would break the chain
   let neighbors-of-patch-ahead [neighbors] of patch-ahead 1
   report any? link-neighbors with [not member? patch-here neighbors-of-patch-ahead]
 end
@@ -166,8 +162,8 @@ end
 
 to calculate-molecular-weights
   ask initiators with [track-mw?] [
-    let my-id chain-id
-    set molecular-weight count turtles with [chain-id = my-id]
+    let id chain-id
+    set molecular-weight count turtles with [chain-id = id]
   ]
 end
 
@@ -191,11 +187,11 @@ end
 GRAPHICS-WINDOW
 210
 10
-698
-499
+1118
+919
 -1
 -1
-6.0
+5.0
 1
 5
 1
@@ -206,9 +202,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-79
+179
 0
-79
+179
 0
 0
 1
@@ -274,8 +270,8 @@ SLIDER
 num-monomers
 num-monomers
 1
-1000
-1000.0
+10000
+7580.0
 1
 1
 NIL
@@ -289,8 +285,8 @@ SLIDER
 num-initiators
 num-initiators
 1
-100
-29.0
+1000
+100.0
 1
 1
 NIL
@@ -361,10 +357,10 @@ NIL
 HORIZONTAL
 
 PLOT
-715
-22
-984
-261
+1146
+19
+1415
+258
 Molecular Weight Distribution
 Molecular Weight
 Number of Molecules
@@ -374,7 +370,7 @@ Number of Molecules
 20.0
 false
 false
-"" ""
+"set-plot-y-range 0 (num-initiators * 0.75)" ""
 PENS
 "default" 1.0 1 -16777216 true "set-histogram-num-bars 10" "histogram [molecular-weight] of initiators with [track-mw?]"
 
