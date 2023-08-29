@@ -1,6 +1,6 @@
-breed [monomers monomer]
-breed [radical-monomers radical-monomer]
-breed [saturated-monomers saturated-monomer]
+breed [unsaturated-mers unsaturated-mer]
+breed [radical-mers radical-mer]
+breed [saturated-mers saturated-mer]
 breed [initiators initiator]
 breed [radical-initiators radical-initiator]
 
@@ -30,9 +30,9 @@ end
 
 
 to setup-default-shapes
-  set-default-shape monomers "circle"
-  set-default-shape radical-monomers "circle"
-  set-default-shape saturated-monomers "circle"
+  set-default-shape unsaturated-mers "circle"
+  set-default-shape radical-mers "circle"
+  set-default-shape saturated-mers "circle"
 
   set-default-shape initiators "square"
   set-default-shape radical-initiators "square"
@@ -41,11 +41,11 @@ end
 to setup-agents
   ;; create agents on unoccupied patches
   create-turtles num-monomers [
-    change-to-monomer
+    change-to-unsaturated-mer
     move-to one-of patches with [not any? turtles-here]
   ]
 
-  create-turtles num-initiators [
+  create-turtles num-radical-initiators [
     change-to-radical-initiator
     move-to one-of patches with [not any? turtles-here]
     set chain-id current-chain-id
@@ -53,30 +53,35 @@ to setup-agents
   ]
 end
 
-to change-to-monomer
-  set breed monomers
+to change-to-unsaturated-mer
+  set breed unsaturated-mers
+  set color sky + 1
+  set color [100 143 255]
+end
+
+to change-to-radical-mer
+  set breed radical-mers
+  set color turquoise
+  set color [220 38 127]
+end
+
+to change-to-saturated-mer
+  set breed saturated-mers
   set color blue
-end
-
-to change-to-radical-monomer
-  set breed radical-monomers
-  set color green
-end
-
-to change-to-saturated-monomer
-  set breed saturated-monomers
-  set color violet
+  set color [120 94 240]
 end
 
 to change-to-initiator
   set breed initiators
   set color yellow
+  set color [255 176 0]
   set track-mw? true
 end
 
 to change-to-radical-initiator
   set breed radical-initiators
   set color red
+  set color [254 97 0]
 end
 
 
@@ -90,9 +95,9 @@ end
 
 
 to interact
-  if breed = radical-initiators or breed = radical-monomers [
+  if breed = radical-initiators or breed = radical-mers [
     ;; neighbors4 here because when a diagonal link is created, if there is a link between the two adjacent turtles, the links can get crossed
-    let bondable-neighbors (turtles-on neighbors4) with [(breed = monomers and count link-neighbors = 0) or breed = radical-monomers or breed = radical-initiators]
+    let bondable-neighbors (turtles-on neighbors4) with [(breed = unsaturated-mers and count link-neighbors = 0) or breed = radical-mers or breed = radical-initiators]
     if any? bondable-neighbors [
       ask one-of bondable-neighbors [bond-and-change-breed]
       change-breed-myself
@@ -108,32 +113,32 @@ to bond-and-change-breed
       change-to-initiator
       set track-mw? false
     ]
-    breed = radical-monomers [
+    breed = radical-mers [
       if [breed] of myself = radical-initiators [
         create-link-with myself
         let id1 [chain-id] of myself
         let id2 chain-id
         ask initiators with [chain-id = id2] [set track-mw? false]
         ask turtles with [chain-id = id2] [set chain-id id1]
-        change-to-monomer
+        change-to-saturated-mer
       ]
-      if [breed] of myself = radical-monomers [
+      if [breed] of myself = radical-mers [
         ifelse random-float 1 <= disproportionation-prob [
-          change-to-saturated-monomer
+          change-to-unsaturated-mer
         ] [
           create-link-with myself
           let id1 [chain-id] of myself
           let id2 chain-id
           ask initiators with [chain-id = id2] [set track-mw? false]
           ask turtles with [chain-id = id2] [set chain-id id1]
-          change-to-monomer
+          change-to-saturated-mer
         ]
       ]
     ]
-    breed = monomers and count link-neighbors = 0 [
+    breed = unsaturated-mers and count link-neighbors = 0 [
       create-link-with myself
       set chain-id [chain-id] of myself
-      change-to-radical-monomer
+      change-to-radical-mer
     ]
   )
 end
@@ -141,16 +146,16 @@ end
 to change-breed-myself
   (ifelse
     breed = radical-initiators [change-to-initiator]
-    breed = radical-monomers [change-to-monomer]
+    breed = radical-mers [change-to-saturated-mer]
   )
 end
 
 
 to move  ;; turtle procedure
-  ;; choose a heading, and before moving the monomer,
+  ;; choose a heading, and before moving the mer,
   ;; checks if the move would break or cross the chain
-  face one-of neighbors
-  if not breaking-chain? and not crossing-chain? [ fd 1 ]
+  face one-of neighbors4
+  if not breaking-chain? and self-excluding? [ fd 1 ]
 end
 
 to-report breaking-chain?
@@ -159,8 +164,8 @@ to-report breaking-chain?
   report any? link-neighbors with [not member? patch-here neighbors-of-patch-ahead]
 end
 
-to-report crossing-chain?
-  report [any? turtles-here] of patch-ahead 1
+to-report self-excluding?
+  report [not any? turtles-here] of patch-ahead 1
 end
 
 
@@ -172,9 +177,18 @@ to calculate-molecular-weights
 end
 
 
+to-report num-avg-molecular-weight
+
+end
+
+to-report wgt-avg-molecular-weight
+
+end
+
+
 to add-monomers
   create-turtles num-add [
-    change-to-monomer
+    change-to-unsaturated-mer
     move-to one-of patches with [not any? turtles-here]
   ]
 end
@@ -286,11 +300,11 @@ SLIDER
 64
 193
 97
-num-initiators
-num-initiators
+num-radical-initiators
+num-radical-initiators
 1
 100
-29.0
+30.0
 1
 1
 NIL
@@ -369,14 +383,96 @@ Molecular Weight Distribution
 Molecular Weight
 Number of Molecules
 0.0
-100.0
 0.0
-20.0
+0.0
+0.0
+true
 false
-false
-"" ""
+"set-plot-x-range 0 (round (num-monomers * 0.1))\nset-plot-y-range 0 (round (num-radical-initiators * 0.75))" ";if (any? initiators) and (ticks mod 100) = 0 [\n;set-plot-x-range 0 ([molecular-weight] of max-one-of initiators [molecular-weight])\n;]"
 PENS
 "default" 1.0 1 -16777216 true "set-histogram-num-bars 10" "histogram [molecular-weight] of initiators with [track-mw?]"
+
+TEXTBOX
+41
+348
+191
+468
+Shape & Color Key\nmers: circle\n\n\n\n\ninitiators: square
+12
+0.0
+1
+
+TEXTBOX
+49
+382
+199
+400
+unsaturated mers: sky blue
+11
+96.0
+1
+
+TEXTBOX
+50
+402
+200
+420
+radical mers: green
+11
+75.0
+1
+
+TEXTBOX
+50
+420
+200
+438
+saturated mers: blue
+11
+105.0
+1
+
+TEXTBOX
+50
+459
+200
+477
+radical initiators: red
+11
+15.0
+1
+
+TEXTBOX
+51
+479
+201
+497
+initiators: yellow
+11
+43.0
+1
+
+MONITOR
+716
+280
+924
+325
+Number Average Molecular Weight
+num-avg-molecular-weight
+3
+1
+11
+
+MONITOR
+717
+340
+920
+385
+Weight Average Molecular Weight
+wgt-avg-molecular-weight
+5
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
