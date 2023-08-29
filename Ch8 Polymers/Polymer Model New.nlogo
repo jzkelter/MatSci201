@@ -16,8 +16,8 @@ initiators-own [
 globals [
   current-chain-id ;; chain-id given to next created radical-initiator
 
-  total-molecular-weight
-  num-polymers
+  num-avg-molecular-weight
+  wgt-avg-molecular-weight
 ]
 
 to setup
@@ -34,8 +34,8 @@ to setup-default-shapes
   set-default-shape radical-mers "circle"
   set-default-shape saturated-mers "circle"
 
-  set-default-shape initiators "square"
   set-default-shape radical-initiators "square"
+  set-default-shape initiators "square"
 end
 
 to setup-agents
@@ -68,15 +68,15 @@ to change-to-saturated-mer
   set color [120 94 240]
 end
 
+to change-to-radical-initiator
+  set breed radical-initiators
+  set color [254 97 0]
+end
+
 to change-to-initiator
   set breed initiators
   set color [255 176 0]
   set track-mw? true
-end
-
-to change-to-radical-initiator
-  set breed radical-initiators
-  set color [254 97 0]
 end
 
 
@@ -168,26 +168,10 @@ to calculate-molecular-weights
     set molecular-weight count turtles with [chain-id = my-id]
   ]
 
-  set total-molecular-weight sum [molecular-weight] of initiators with [track-mw?]
-  set num-polymers count initiators with [track-mw?]
-end
-
-
-to-report num-avg-molecular-weight
-  report total-molecular-weight / num-polymers
-end
-
-to-report wgt-avg-molecular-weight
-  let tot 0
-  ask initiators with [track-mw?] [
-    let weight-fraction molecular-weight / total-molecular-weight
-    set tot tot + weight-fraction * molecular-weight
-  ]
-  report tot
-end
-
-to-report polydispersity-index
-  report wgt-avg-molecular-weight / num-avg-molecular-weight
+  let total-molecular-weight sum [molecular-weight] of initiators with [track-mw?]
+  let num-polymers count initiators with [track-mw?]
+  set num-avg-molecular-weight total-molecular-weight / num-polymers
+  set wgt-avg-molecular-weight sum [molecular-weight * molecular-weight / total-molecular-weight] of initiators with [track-mw?]
 end
 
 
@@ -309,7 +293,7 @@ num-radical-initiators
 num-radical-initiators
 1
 100
-30.0
+10.0
 1
 1
 NIL
@@ -382,7 +366,7 @@ HORIZONTAL
 PLOT
 715
 22
-984
+1092
 261
 Molecular Weight Distribution
 Molecular Weight
@@ -392,10 +376,12 @@ Number of Molecules
 0.0
 0.0
 true
-false
+true
 "set-plot-x-range 0 (round (num-monomers * 0.1))\nset-plot-y-range 0 (round (num-radical-initiators * 0.75))" "if (any? initiators) and (ticks mod 100) = 0 [\nset-plot-x-range 0 ([molecular-weight] of max-one-of initiators [molecular-weight])\n]"
 PENS
-"default" 1.0 1 -16777216 true "set-histogram-num-bars 8" "histogram [molecular-weight] of initiators with [track-mw?]"
+"histogram" 1.0 1 -16777216 true "set-histogram-num-bars 8" "histogram [molecular-weight] of initiators with [track-mw?]"
+"number avg mw" 1.0 0 -2674135 true "" "plot-pen-reset\nplotxy num-avg-molecular-weight plot-y-min\nplotxy num-avg-molecular-weight plot-y-max"
+"weight avg mw" 1.0 0 -13345367 true "" "plot-pen-reset\nplotxy wgt-avg-molecular-weight plot-y-min\nplotxy wgt-avg-molecular-weight plot-y-max"
 
 TEXTBOX
 41
@@ -414,7 +400,7 @@ TEXTBOX
 400
 unsaturated mers: sky blue
 11
-96.0
+106.0
 1
 
 TEXTBOX
@@ -422,9 +408,9 @@ TEXTBOX
 402
 200
 420
-radical mers: green
+radical mers: magenta
 11
-75.0
+126.0
 1
 
 TEXTBOX
@@ -432,9 +418,9 @@ TEXTBOX
 420
 200
 438
-saturated mers: blue
+saturated mers: purple
 11
-105.0
+115.0
 1
 
 TEXTBOX
@@ -442,9 +428,9 @@ TEXTBOX
 459
 200
 477
-radical initiators: red
+radical initiators: orange
 11
-15.0
+24.0
 1
 
 TEXTBOX
@@ -454,39 +440,39 @@ TEXTBOX
 497
 initiators: yellow
 11
-43.0
+36.0
 1
 
 MONITOR
 716
-280
-924
-325
+276
+899
+321
 Number Average Molecular Weight
 num-avg-molecular-weight
-3
+1
 1
 11
 
 MONITOR
-717
-340
-920
-385
+914
+276
+1091
+321
 Weight Average Molecular Weight
 wgt-avg-molecular-weight
-5
+1
 1
 11
 
 MONITOR
-718
-401
-844
-446
+715
+334
+841
+379
 Polydispersity Index
-polydispersity-index
-5
+wgt-avg-molecular-weight / num-avg-molecular-weight
+2
 1
 11
 
