@@ -1,8 +1,8 @@
-breed [unsaturated-mers unsaturated-mer]
-breed [radical-mers radical-mer]
+breed [unsaturated-mers unsaturated-mer] ;; monomers start out as unsaturated mers, and in a polymer they turn into saturated mers
+breed [radical-mers radical-mer] ;; the mer at the end of a propagating chain has a free radical, and is therefore a radical mer
 breed [saturated-mers saturated-mer]
-breed [radical-initiators radical-initiator]
-breed [initiators initiator]
+breed [radical-initiators radical-initiator] ;; initiators in the model start out as radical initiators
+breed [initiators initiator] ;; once they bond, the initiators lose their free radical, turning into just an initiator
 
 turtles-own [
   chain-id ;; identification number for each polymer for calculating molecular weight
@@ -15,9 +15,8 @@ initiators-own [
 
 globals [
   current-chain-id ;; chain-id given to next created radical-initiator
-
-  num-avg-molecular-weight
-  wgt-avg-molecular-weight
+  num-avg-molecular-weight ;; the number average molecular weight uses the number fraction of polymers
+  wgt-avg-molecular-weight ;; the weight average molecular weight uses the weight fraction of polymers
 ]
 
 to setup
@@ -30,6 +29,7 @@ end
 
 
 to setup-default-shapes
+  ;; mers are circles, initiators are squares
   set-default-shape unsaturated-mers "circle"
   set-default-shape radical-mers "circle"
   set-default-shape saturated-mers "circle"
@@ -48,6 +48,7 @@ to setup-agents
   create-turtles num-radical-initiators [
     change-to-radical-initiator
     move-to one-of patches with [not any? turtles-here]
+    ;; the chain-ids are initially given to radical initiators because each propagating chain starts with a radical initiator
     set chain-id current-chain-id
     set current-chain-id current-chain-id + 1
   ]
@@ -76,13 +77,14 @@ end
 to change-to-initiator
   set breed initiators
   set color [255 176 0]
+  ;; moleular weight is tracked using initiators because each polymer will have at least one initiator
   set track-mw? true
 end
 
 
 
 to go
-  ask turtles [interact]
+  ask (turtle-set radical-initiators radical-mers) [interact]
   ask turtles [move]
   calculate-molecular-weights
   tick
@@ -90,37 +92,49 @@ end
 
 
 to interact
-  if breed = radical-initiators or breed = radical-mers [
-    ;; neighbors4 here because when a diagonal link is created, if there is a link between the two adjacent turtles, the links can get crossed
-    let bondable-neighbors (turtles-on neighbors4) with [(breed = unsaturated-mers and count link-neighbors = 0) or breed = radical-mers or breed = radical-initiators]
-    if any? bondable-neighbors [
-      ask one-of bondable-neighbors [bond-and-change-breed]
-      change-breed-myself
-    ]
+  ;; neighbors4 here because when a diagonal link is created, if there is a link between the two adjacent turtles, the links can get crossed
+  let bondable-neighbors (turtles-on neighbors4) with [(breed = unsaturated-mers and count link-neighbors = 0) or breed = radical-mers or breed = radical-initiators]
+  if any? bondable-neighbors [
+    ;; determines the bond, and breed changes for both the initiating agent and the neighbor agent
+    ;; changes the neighbor agent's breed first to make the ifelse logic clear
+    ask one-of bondable-neighbors [bond-and-change-breed]
+    change-breed-myself
   ]
 end
 
 to bond-and-change-breed
+  ;; called by the neighbor agent
   (ifelse
+    ;; radical agent interacting with a radical-initiator
     breed = radical-initiators [
       create-link-with myself
+      ;; when agents with different chain-ids combine, the turtles with the chain-id of the neighbor agent change their chain-id to the initiating agent's, to have the chain-id uniform throughout the polymer
       set chain-id [chain-id] of myself
       change-to-initiator
+      ;; since this initiator is the 2nd of the polymer, it does not track molecular weight to avoid double counting
       set track-mw? false
     ]
     breed = radical-mers [
       if [breed] of myself = radical-initiators [
+        ;; radical-initiator interacting with a radical-mer
         create-link-with myself
         let id1 [chain-id] of myself
         let id2 chain-id
+        ;; since the initiator at the end of the radical mer is the 2nd of the polymer, it does not track molecular weight to avoid double counting
         ask initiators with [chain-id = id2] [set track-mw? false]
         ask turtles with [chain-id = id2] [set chain-id id1]
         change-to-saturated-mer
       ]
       if [breed] of myself = radical-mers [
+        ;; radical-mer interacting with another radical-mer, combination or disproportionation termination occurs depending on the set probability
         ifelse random-float 1 <= disproportionation-prob [
+          ;; disproportionation termination, the only interaction where a bond is not formed
+          ;; the initiating mer takes a hydrogen to become a saturated mer
+          ;; the neighbor mer gives a hydrogen to become an unsaturated mer
+          ;; this order does not matter because the turtles are called to interact in a random order
           change-to-unsaturated-mer
         ] [
+          ;; combination termination, the propagating chains combine to form one polymer
           create-link-with myself
           let id1 [chain-id] of myself
           let id2 chain-id
@@ -131,6 +145,7 @@ to bond-and-change-breed
       ]
     ]
     breed = unsaturated-mers and count link-neighbors = 0 [
+      ;; radical agent interacting with a monomer
       create-link-with myself
       set chain-id [chain-id] of myself
       change-to-radical-mer
@@ -139,16 +154,21 @@ to bond-and-change-breed
 end
 
 to change-breed-myself
+  ;; called by the initiating agent
   (ifelse
+    ;; the initiating agent is always a radical that turns into a non radical
     breed = radical-initiators [change-to-initiator]
     breed = radical-mers [change-to-saturated-mer]
   )
 end
 
 
-to move  ;; turtle procedure
-  face one-of neighbors ;; choose a heading, and before moving the mer,
-  if not breaking-chain? and self-excluding? [ move-to patch-ahead 1 ] ;; checks if the move would break or cross the chain
+to move
+  ;; turtle procedure
+  ;; choose a heading, and before moving the mer
+  face one-of neighbors
+  ;; checks if the move is self-excluding or breaks the chain
+  if self-excluding? and not breaking-chain? [ move-to patch-ahead 1 ]
 end
 
 to-report breaking-chain?
@@ -158,11 +178,14 @@ to-report breaking-chain?
 end
 
 to-report self-excluding?
+  ;; two turtles cannot occupy the same patch
   report [not any? turtles-here] of patch-ahead 1
 end
 
 
 to calculate-molecular-weights
+  ;; for plot and monitors
+  ;; only calls initiators that are tracking molecular weight
   ask initiators with [track-mw?] [
     let my-id chain-id
     set molecular-weight count turtles with [chain-id = my-id]
@@ -170,12 +193,17 @@ to calculate-molecular-weights
 
   let total-molecular-weight sum [molecular-weight] of initiators with [track-mw?]
   let num-polymers count initiators with [track-mw?]
-  set num-avg-molecular-weight total-molecular-weight / num-polymers
-  set wgt-avg-molecular-weight sum [molecular-weight * molecular-weight / total-molecular-weight] of initiators with [track-mw?]
+
+  ;; to avoid division by 0 when num-polymers = 0
+  if num-polymers > 0 [
+    set num-avg-molecular-weight total-molecular-weight / num-polymers
+    set wgt-avg-molecular-weight sum [molecular-weight * molecular-weight / total-molecular-weight] of initiators with [track-mw?] ;; sum of molecular-weights multiplied by weight fraction (mw / tmw)
+  ]
 end
 
 
 to add-monomers
+  ;; for additional monomers
   create-turtles num-add [
     change-to-unsaturated-mer
     move-to one-of patches with [not any? turtles-here]
@@ -183,6 +211,7 @@ to add-monomers
 end
 
 to add-radical-initiators
+  ;; for additional radical-initiators
   create-turtles num-add [
     change-to-radical-initiator
     move-to one-of patches with [not any? turtles-here]
@@ -346,7 +375,7 @@ NIL
 NIL
 NIL
 NIL
-1
+0
 
 SLIDER
 20
