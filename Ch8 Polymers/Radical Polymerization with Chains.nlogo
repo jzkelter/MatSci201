@@ -84,10 +84,14 @@ end
 
 
 to go
-  ask (turtle-set radical-initiators radical-mers) [interact]
+  ask radicals [interact]
   ask turtles [move]
   calculate-molecular-weights
   tick
+end
+
+to-report radicals
+  report (turtle-set radical-initiators radical-mers)
 end
 
 
@@ -322,7 +326,7 @@ num-radical-initiators
 num-radical-initiators
 1
 100
-10.0
+30.0
 1
 1
 NIL
@@ -474,36 +478,54 @@ initiators: yellow
 
 MONITOR
 716
-276
-899
-321
-Number Average Molecular Weight
+275
+832
+320
+Number Avg MW
 num-avg-molecular-weight
 1
 1
 11
 
 MONITOR
-914
-276
-1091
-321
-Weight Average Molecular Weight
+842
+275
+956
+320
+Weight Avg MW
 wgt-avg-molecular-weight
 1
 1
 11
 
 MONITOR
-715
-334
-841
-379
+966
+275
+1092
+320
 Polydispersity Index
 wgt-avg-molecular-weight / num-avg-molecular-weight
 2
 1
 11
+
+PLOT
+717
+335
+917
+485
+Number of Monomers
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count unsaturated-mers with [count link-neighbors = 0]"
 
 @#$#@#$#@
 ## WHAT IS IT?
