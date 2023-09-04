@@ -227,8 +227,8 @@ end
 GRAPHICS-WINDOW
 210
 10
-698
-499
+764
+565
 -1
 -1
 6.0
@@ -241,12 +241,12 @@ GRAPHICS-WINDOW
 1
 1
 1
-0
-79
-0
-79
-0
-0
+-45
+45
+-45
+45
+1
+1
 1
 ticks
 30.0
@@ -333,10 +333,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-21
-154
-193
-187
+20
+166
+192
+199
 num-add
 num-add
 1
@@ -348,10 +348,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-48
-200
-160
-233
+47
+212
+159
+245
 NIL
 add-monomers
 NIL
@@ -365,10 +365,10 @@ NIL
 0
 
 BUTTON
-33
-241
-173
-274
+32
+253
+172
+286
 NIL
 add-radical-initiators
 NIL
@@ -382,10 +382,10 @@ NIL
 0
 
 SLIDER
-20
-291
-194
-324
+19
+313
+193
+346
 disproportionation-prob
 disproportionation-prob
 0
@@ -397,10 +397,10 @@ NIL
 HORIZONTAL
 
 PLOT
-715
-22
-1092
-261
+784
+24
+1161
+263
 Molecular Weight Distribution
 Molecular Weight
 Number of Molecules
@@ -408,79 +408,79 @@ Number of Molecules
 0.0
 0.0
 0.0
+false
 true
-true
-"set-plot-x-range 0 (round (num-monomers * 0.1))\nset-plot-y-range 0 (round (num-radical-initiators * 0.75))" "if (any? initiators) and (ticks mod 100) = 0 [\nset-plot-x-range 0 ([molecular-weight] of max-one-of initiators [molecular-weight])\n]"
+"set-plot-x-range 0 (round (num-monomers * 0.1))\nset-plot-y-range 0 (round (num-radical-initiators * 0.7))" "if (any? initiators) and (ticks mod 100) = 0 [\nset-plot-x-range 0 ([molecular-weight] of max-one-of initiators [molecular-weight])\n]"
 PENS
-"histogram" 1.0 1 -16777216 true "set-histogram-num-bars 8" "histogram [molecular-weight] of initiators with [track-mw?]"
+"histogram" 1.0 1 -16777216 true "set-histogram-num-bars 8" "histogram [molecular-weight] of initiators with [track-mw?]\nif (any? initiators) and (ticks mod 100) = 0 [\nset-histogram-num-bars 8\n]"
 "number avg mw" 1.0 0 -2674135 true "" "plot-pen-reset\nplotxy num-avg-molecular-weight plot-y-min\nplotxy num-avg-molecular-weight plot-y-max"
 "weight avg mw" 1.0 0 -13345367 true "" "plot-pen-reset\nplotxy wgt-avg-molecular-weight plot-y-min\nplotxy wgt-avg-molecular-weight plot-y-max"
 
 TEXTBOX
-41
-348
-191
-468
+40
+383
+190
+503
 Shape & Color Key\nmers: circle\n\n\n\n\ninitiators: square
 12
 0.0
 1
 
 TEXTBOX
-49
-382
-199
-400
+48
+417
+198
+435
 unsaturated mers: sky blue
 11
 106.0
 1
 
 TEXTBOX
-50
-402
-200
-420
+49
+437
+199
+455
 radical mers: magenta
 11
 126.0
 1
 
 TEXTBOX
-50
-420
-200
-438
+49
+455
+199
+473
 saturated mers: purple
 11
 115.0
 1
 
 TEXTBOX
-50
-459
-200
-477
+49
+494
+199
+512
 radical initiators: orange
 11
 24.0
 1
 
 TEXTBOX
-51
-479
-201
-497
+50
+514
+200
+532
 initiators: yellow
 11
 36.0
 1
 
 MONITOR
-716
-275
-832
-320
+785
+277
+901
+322
 Number Avg MW
 num-avg-molecular-weight
 1
@@ -488,10 +488,10 @@ num-avg-molecular-weight
 11
 
 MONITOR
-842
-275
-956
-320
+911
+277
+1025
+322
 Weight Avg MW
 wgt-avg-molecular-weight
 1
@@ -499,10 +499,10 @@ wgt-avg-molecular-weight
 11
 
 MONITOR
-966
-275
-1092
-320
+1035
+277
+1161
+322
 Polydispersity Index
 wgt-avg-molecular-weight / num-avg-molecular-weight
 2
@@ -510,10 +510,10 @@ wgt-avg-molecular-weight / num-avg-molecular-weight
 11
 
 PLOT
-717
-335
-917
-485
+786
+337
+1025
+527
 Number of Monomers
 NIL
 NIL
@@ -532,33 +532,104 @@ PENS
 
 (a general understanding of what the model is trying to show or explain)
 
+;; Things to maybe have in this section:
+
+;; - This model has the radical-initiator turn into an initiator and the opposite end being the propogating end.
+;; - Disproportionation leaves both ends uncreactive to radicals.
+
+
+
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+The radical polymerization is modeled using a cellular automaton approach involving only local interactions, with any global interactions used only for monitoring purposes.
+
+Radical agents are the only agents that initiate interaction with other agents. During the go code, radicals are asked to interact, then all turtles are called to move.
+
+During interact, the radical agent randomly chooses, if available, one monomer, radical-mer, or radical-initiator from its adjacent neighbors. It then asks this agent to bond and change its breed, then finally the initiating agent changes its own breed.
+
+When the neighbor is asked to bond and change its breed, if the neighbor is a radical initiator, it bonds with the initiating agent and changes to an initiator. If the neighbor is a monomer, it bonds with the initiating agent and changes to a radical-mer.
+
+If the neighbor is a radical-mer, there are a few different cases. If the initiating agent is a radical-initiator, the neighbor bonds with the initiating agent and changes to a saturated-mer. If the initiating agent is a radical-mer, the outcome depends on DISPROPORTIONATION-PROB.
+
+If disproportionation occurs, the neighbor does not bond (only case where the neighbor does not bond) and changes to a unsaturated-mer (only case where an unsaturated-mer is not a monomer). If disproportionation does not occur and combination occurs, the neighbor bonds wtih the initiating agent and changes to a saturated-mer.
+
+When the initiating agent changes its own breed, if it is a radical-initiator, it changes to an initiator, and if it is a radical-mer, it changes to a saturated-mer.
+
+During move, each turtle chooses one of its neighboring eight patches, and if that patch is unoccupied and moving there would not break its bonds, it moves there.
+
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+Before clicking the SETUP button, you first need to determine the number of initial monomers you want created using the NUM-MONOMERS slider and the number of radical initiators using the NUM-RADICAL-INITIATORS slider.
+
+To run the model, first press the SETUP button, then press the GO button. To advance only one tick, you can press the GO ONCE button.
+
+Once the model is running, you can add additional agents using the NUM-ADD slider to determine how many agents to add, and the ADD-MONOMERS button to add monomers, or the ADD-RADICAL-INITIATORS button to add radical initiators.
+
+Additionally, regardless of whether the model is running or not, you can change the probability of disproportionation termination occurring (the alternative being combination termination) when two radical-mers interact using the DISPROPORTIONATION-PROB slider.
+
 
 ## THINGS TO NOTICE
 
-(suggested things for the user to notice while running the model)
+Many different patterns can be noticed in different aspects of the model based on different ratios between monomers and radical initiators. Such as:
+
+* the final number of monomers in each polymer after termination
+
+* the distribution of the molecular weight of polymers
+(seen through the polydispersity index & the distribution on the molecular weight plot)
+
+* how fast the monomers are being added to polymer
+(seen through the shape of the curve in the number of monomers plot)
+
+It is also important to note that along with the ratio between monomers and radical initiators, the concentration of agents within the world must also be considered. Even with the same ratio of each agent, different patterns can be observed based on how packed the agents are in the world.
 
 ## THINGS TO TRY
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+Slow down the model to see each interaction occurring
+
+Try adding a steady flow of either monomers or radical initiators, or both using the add buttons
+
+Try increasing the dimensions of the world. Does the behavior change at all?
 
 ## EXTENDING THE MODEL
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+Interface additions:
+
+* Add sliders that control the probability for each interaction so that the interactions do not occur every time
+
+* Alternatively, a temperature slider could be added that correlates to the probability of interaction (higher temperature, more likely for agents to interact)
+
+* Instead of the agents moving by themselves, change the code so that the user drags agents to make them interact (polymers are tied together so they move together)
+
+* Add a switch that lets the user decide whether to add the initial monomers all at once when the model starts, or to add them in continuously at a predetermined rate
+
+Changes to the move code:
+
+* Have each polymer as a whole randomly move or rotate, modeling a flow in the model
+
+* Alter the breaking-chain? code to be looser, so that a link-neighbor can be further away than 1 patch without breaking the chain
+
+Changes to the main ideas of the model:
+
+* Change the model to be a step growth model instead, so the mers are all active and bond with neighbors on two sides
+
+* Change the initiation reaction so that the propagation starts on the side where the radical initiator comes in, resulting in the chain to be able to propagate on both sides
+
+* Make a hexagonal grid instead of the current square grid to be more accurate to packing (difficult)
+(If you are attempting this, look at the grain growth model in the models library to see how to create a hexagonal lattice)
+
 
 ## NETLOGO FEATURES
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+Radical mers and radical initiators are the only agents that initiate in the interact code, so those two breeds are called. In order to avoid checking the breeds every time the interact code is called, a turtle-set made of radical-mers and radical-initiators was uitilized and called instead.
+
+Auto scaling does not affect a histogram's horizontal range, so when using a histogram for the molecular weight distribution plot, an update command was implemented that adjusts the x-range periodically. This, however,  was in conflict with the "set-histogram-num-bars" pen setup command that determined the number of bars, because this would not automatically update when the x-range changed. To account for this, a pen update command was added that ran "set-histogram-num-bars" in the same period as when the x-range updated.
+
 
 ## RELATED MODELS
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+Polymer Dynamics
+Radical Polymerization
 
 ## CREDITS AND REFERENCES
 
