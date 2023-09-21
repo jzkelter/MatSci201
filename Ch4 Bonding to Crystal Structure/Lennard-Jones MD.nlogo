@@ -1,22 +1,21 @@
+__includes [ "../nls-files/molecular-dynamics-core.nls" ]
+
+;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
 
 atoms-own [
-  ax     ; x-component of acceleration vector
-  ay     ; y-component of acceeleration vector
+  ;; the following variables are for the molecular-dynamics-core.nls file
+  fx     ; x-component of force vector from last time step
+  fy     ; y-component of force vector from last time step
   vx     ; x-component of velocity vector
   vy     ; y-component of velocity vector
+  mass   ; mass of atom
+  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
+  atom-PE ; Potential energy of the atom
+  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
+  base-color  ; display color for the atom when it isn't selected
 ]
 
-globals [
-  r-min
-  eps
-  -eps*4
-  cutoff-dist
-  force-offset
-  PE-offset
-  dt
-  kb
-]
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ;; Setup Procedures ;;
@@ -25,20 +24,20 @@ globals [
 to setup
   clear-all
   set-default-shape turtles "circle"
-  set dt .01
-  set kb (1 / 10)  ; just picking a random constant for Kb that makes things work reasonably
-  set r-min  2 ^ (1 / 6)
-  set eps 1
-  set -eps*4 -4 * eps
+  mdc.setup-constants
+
   ifelse num-atoms = 3 [
     set cutoff-dist world-width
   ] [
     set cutoff-dist 2.5 * r-min
   ]
-  set force-offset -1 * calc-force-without-offset cutoff-dist
-  set PE-offset -1 * calc-pair-PE-without-offset cutoff-dist
-  setup-atoms
-  init-velocity
+
+  if initial-config = "Solid" [mdc.setup-atoms-natoms num-atoms]
+  if initial-config = "Random" [mdc.setup-atoms-random num-atoms]
+
+  ask atom 0 [ mdc.setup-cutoff-linear-functions-1sig ]
+  mdc.init-velocity
+
   if num-atoms = 3 [
     ask atoms [set vx 0 set vy 0]
     create-link-rulers
@@ -47,6 +46,7 @@ to setup
   reset-timer
   reset-ticks
 end
+
 
 to create-link-rulers
   ask atoms [
@@ -62,66 +62,6 @@ to set-label-distance
   set label (word precision (d / r-min) 1 " r0")
 end
 
-to setup-atoms
-  create-atoms num-atoms [
-    set shape "circle"
-    set color blue
-  ]
-
-  if initial-config = "Solid" [
-    let l sqrt(num-atoms) ;the # of atoms in a row
-    let x-dist r-min
-    let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
-    let ypos (- l * x-dist / 2) ;the y position of the first atom
-    let xpos (- l * x-dist / 2) ;the x position of the first atom
-    let r-num 0  ;the row number
-    ask turtles [  ;set the atoms; positions
-      if xpos > (l * x-dist / 2)  [  ;condition to start a new row
-        set r-num r-num + 1
-        set xpos (- l * x-dist / 2) + (r-num mod 2) * x-dist / 2
-        set ypos ypos + y-dist
-      ]
-      setxy xpos ypos  ;if we are still in the same row
-      set xpos xpos + x-dist
-    ]
-  ]
-
-  if initial-config = "Random" [
-    ask atoms [
-      setxy random-xcor random-ycor
-    ]
-    remove-overlap ;make sure atoms aren't overlapping
-  ]
-
-end
-
-to init-velocity
-  let v-avg sqrt( 2 * Kb * temp)
-  ask atoms [
-    let a random-float 1  ; a random amount of the total velocity to go the x direction
-    set vx sqrt (a * v-avg ^ 2) * positive-or-negative
-    set vy sqrt( v-avg ^ 2 - vx ^ 2)  * positive-or-negative
-  ]
-end
-
-
-to-report positive-or-negative
-  report ifelse-value random 2 = 0 [-1] [1]
-end
-
-
-to remove-overlap
-  ask atoms [
-    while [overlapping] [
-      setxy random-xcor random-ycor
-    ]
-  ]
-end
-
-to-report overlapping
-  report any? other turtles in-radius r-min
-end
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Procedures ;;
@@ -130,130 +70,23 @@ end
 to go
   (ifelse
     go-mode = "simulate" [simulate]
-    go-mode = "drag atoms" [drag-atoms-with-mouse]
+    go-mode = "drag atoms" [
+      mdc.drag-atoms-with-mouse-1sig
+      ask links [show-link]
+      ask links [set-label-distance]
+    ]
   )
-
 end
+
 
 to simulate
   ask links [hide-link]
-  ask atoms [
-    update-force-and-velocity
-  ]
-  ask atoms [
-    move
-  ]
-  if constant-temp? [scale-velocities]
+  mdc.move-atoms
+  mdc.update-force-and-velocity-and-PE-1sig
+  if constant-temp? [mdc.scale-velocities]
+
   tick-advance dt
   update-plots
-end
-
-
-to-report current-temp
-  report (1 / (2 * Kb)) * mean [vx ^ 2 + vy ^ 2] of atoms
-end
-
-
-to scale-velocities
-  let ctemp current-temp
-  (ifelse
-    ctemp = 0 and temp != 0 [
-      ask atoms [init-velocity]
-    ]
-    ctemp != 0 [
-      let scale-factor sqrt( temp / ctemp )  ; if "external" temperature is higher atoms will speed up and vice versa
-      ask atoms [
-        set vx vx * scale-factor
-        set vy vy * scale-factor
-      ]
-    ]
-  )
-end
-
-to update-force-and-velocity  ; atom procedure
-  let new-ax 0
-  let new-ay 0
-  ask other atoms in-radius cutoff-dist [
-    let r distance myself
-    let force calc-force r
-    face myself
-    rt 180
-    set new-ax new-ax + (force * dx)  ; assuming mass = 1. If not, neeed to divide force by mass to get acceleration
-    set new-ay new-ay + (force * dy)
-  ]
-  set vx velocity-verlet-velocity vx ax new-ax
-  set vy velocity-verlet-velocity vy ay new-ay
-  set ax new-ax
-  set ay new-ay
-
-end
-
-to-report calc-force [r]
-  report calc-force-without-offset r + force-offset
-end
-
-to-report calc-force-without-offset [r]
-  let r^3 r * r * r
-  let r^6 r^3 * r^3
-  ;report (-eps*4 / (r^6 * r)) * ((1 / r^6) - 1)
-  report (-eps*4 * 6 / (r^6 * r)) * ((2 / r^6) - 1)
-end
-
-to move  ; atom procedure
-  ;; Uses velocity-verlet algorithm
-  set xcor velocity-verlet-pos xcor vx ax
-  set ycor velocity-verlet-pos ycor vy ay
-end
-
-to-report velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
-  report pos + v * dt + (1 / 2) * a * (dt ^ 2)
-end
-
-to-report velocity-verlet-velocity [v a new-a]  ; velocity, previous acceleration, new acceleration
-  report v + (1 / 2) * (new-a + a) * dt
-end
-
-
-to-report calc-PE
-  let U 0  ;; U stands for PE
-
-  ask other turtles in-radius cutoff-dist [
-
-    set U U + calc-pair-PE (distance myself)
-  ]
-  report U
-end
-
-to-report calc-pair-PE [r]
-  report calc-pair-PE-without-offset r + PE-offset
-end
-
-to-report calc-pair-PE-without-offset [r]
-  let rsquare r ^ 2
-  let attract-term 1 / rsquare ^ 3
-  let repel-term attract-term * attract-term
-  ;NOTE could do this a little faster by attract-term * (attract-term -1)
-  report 4 * eps * (repel-term - attract-term)
-end
-
-
-to drag-atoms-with-mouse
-  ask links [show-link]
-  if mouse-down? [
-    ask min-one-of turtles [distancexy mouse-xcor mouse-ycor] [
-      let oldx xcor
-      let oldy ycor
-      setxy mouse-xcor mouse-ycor
-      ifelse calc-PE > 1 [ ; if energy would be too high, don't let the atom go there.
-        setxy oldx oldy
-      ] [
-        set vx 0
-        set vy 0
-      ]
-    ]
-  ]
-  ask links [set-label-distance]
-  display
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -277,8 +110,8 @@ GRAPHICS-WINDOW
 5
 -5
 5
-1
-1
+0
+0
 1
 ticks
 30.0
@@ -326,7 +159,7 @@ num-atoms
 num-atoms
 0
 30
-20.0
+30.0
 1
 1
 NIL
@@ -340,7 +173,7 @@ CHOOSER
 initial-config
 initial-config
 "Solid" "Random"
-1
+0
 
 SLIDER
 0
@@ -351,7 +184,7 @@ temp
 temp
 0
 8
-0.3
+1.0
 .1
 1
 NIL
@@ -374,7 +207,7 @@ MONITOR
 55
 280
 temp
-current-temp
+mdc.current-temp
 3
 1
 11

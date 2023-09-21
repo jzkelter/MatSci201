@@ -1,0 +1,427 @@
+breed [fl-ends fl-end] ; turtles at the ends of the force lines, point in direction the force is acting
+undirected-link-breed [fl-links fl-link] ; force line links
+undirected-link-breed [wall-links wall-link] ; force line links
+
+globals [
+  prev-lattice-view ; the lattice view in the previous time step
+  upper-left-fl ; upper left force line - shear
+  left-fl ; left force line - compression
+  right-fl; right force line - tension
+  left-edge; where the right side of the sample is (xcor) - tension
+  right-edge ; where the right side of the sample is (xcor) - compression
+  orig-length ; original length of sample
+  prev-length ; length of sample in previous time step
+  unpinned-min-ycor ; min unpinnned ycor for shear
+  top-neck-atoms ; agentset of atoms on the top of the neck (thin region) (tension).
+                 ; Used in calculating stress
+  bottom-neck-atoms ; agentset of atoms on the bottom of the neck (thin region) (tension).
+                    ; Used in calculating stress
+  num-forced-atoms ; number of atoms receiving external force directly
+  auto-increment-force ; force to counteract LJ forces in the x-direction (tension)
+  cross-section
+  ceiling-ycor
+  floor-ycor
+  
+  ;; the following global is for the atom-editing-procedures.nls file
+  atom-viz-size
+  
+  ; globals that are in mdc.nls:
+  ; eps ; used in LJ force. Well depth; measure of how strongly particles attract each other
+  ; eps*4
+  ; sigma ; used in LJ force. Distance at which intermolecular potential between 2 particles is 0
+  ; cutoff-dist ; each atom is influenced by its neighbors within this distance (LJ force)
+  ; dt ; time step for the velocity verlet algorithm
+  ; kb ; boltzmann constant, arbitrary here
+]
+
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Setup Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;
+
+to mp.setup-constants
+  set dt .06
+  ;set kb 0.0002 ; this is a very small number right now
+  ;set eps 0.07
+  set kb 0.1 ; just picking a random constant for Kb that makes things work reasonably
+  set eps 1
+  set eps*4 eps * 4
+  set cutoff-dist 2.5 * r-min
+end
+
+to mp.setup-tension-col
+  ; making a symmetrical sample for tension mode
+  if force-mode = "Tension" and atoms-per-column mod 2 = 0 [
+    set atoms-per-column atoms-per-column + 1
+  ]
+end
+
+to mp.setup-force-mode-shape-and-pinned
+  let x-dist r-min ; the distance between atoms in the x direction
+  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+  
+  ; values used in assigning atom positions
+  let ymax max [ycor] of atoms
+  let xmax max [xcor] of atoms
+  let y-min min [ycor] of atoms
+  let x-min min [xcor] of atoms
+
+  
+  (ifelse force-mode = "Shear"[
+    set unpinned-min-ycor min [ycor] of atoms with [ycor > y-min + 3.5 * y-dist]
+    ask atoms with [
+      (
+        (xcor = x-min or
+          xcor = x-min + (x-dist / 2) or
+          xcor = xmax or
+          xcor = xmax - (x-dist / 2)
+        )
+        and
+        ( ycor < unpinned-min-ycor)
+      )
+    ] [
+      set pinned? true
+      ]
+    ask atoms with-min [ycor] [
+      set pinned? true
+    ]
+    ]
+    force-mode = "Tension"[
+      ask atoms with [xcor = x-min] [die] ; creating the symmetrical shape
+      set x-min min [xcor] of atoms
+      ; deleting a rectangular area of atoms to create the tension shape
+      ask atoms with [
+        (ycor >= ymax - 1.25 or ycor <= y-min + 1.25) and
+         xcor <= xmax - 2.5 and
+         xcor >= x-min + 2.5
+      ] [ die ]
+
+      ask atoms with [xcor = x-min or xcor <= x-min + (x-dist / 2) ] [set pinned? true]
+      ask atoms with [ xcor <= xmax and xcor >= xmax - (x-dist * 1.75) ][
+        set ex-force-applied? true
+        set shape "circle-dot"
+      ]
+      set num-forced-atoms count atoms with [ex-force-applied?]
+    ]
+    force-mode = "Compression" [
+      ask atoms with [xcor = xmax or xcor = xmax - (x-dist / 2) ] [set pinned? true]
+    ]
+  )
+  
+  ask atoms with [pinned?] [ set shape "circle-x"]
+end
+
+to mp.init-atom
+  set ex-force-applied? false
+end
+
+to mp.setup-dislocation
+  if create-dislocation? = true [ ; creating the dislocation
+    let start-xcor (median [xcor] of atoms)
+    let start-ycor (median [ycor] of atoms)
+    if force-mode = "Shear" [ set start-ycor unpinned-min-ycor ]
+    ask min-one-of atoms [(xcor - start-xcor) ^ 2 + (ycor - start-ycor) ^ 2] [
+      set heading -30
+      ask atoms in-cone (r-min * atoms-per-column) 1 [die]
+    ]
+  ]
+  
+  ;; old code
+;  let x-dist r-min ; the distance between atoms in the x direction
+;  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+;  
+;  if create-dislocation? = true [ ; creating the dislocation
+;    let dis-xcor (median [xcor] of atoms)
+;    let dis-ycor (median [ycor] of atoms)
+;    if force-mode = "Shear" [ set dis-ycor unpinned-min-ycor ]
+;    let ii 0
+;    while [ dis-ycor <= ceiling (max [ycor] of atoms) ] [
+;      ask atoms with [ ( ycor <= dis-ycor + y-dist * .25 ) and ( ycor >= dis-ycor - y-dist * 0.25 ) ] [
+;        if ( xcor <= dis-xcor + x-dist * .25 ) and ( xcor >= dis-xcor - x-dist * 0.25 ) [ die ]
+;      ]
+;      
+;      set dis-ycor dis-ycor + y-dist
+;      set dis-xcor dis-xcor - x-dist / 2
+;      set ii ii + 1
+;    ]
+;   ]
+end
+
+to mp.setup-force-lines
+  let x-dist r-min ; the distance between atoms in the x direction
+  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+  
+  ; values used in assigning atom positions
+  let ymax max [ycor] of atoms
+  let xmax max [xcor] of atoms
+  let y-min min [ycor] of atoms
+  let x-min min [xcor] of atoms
+  
+  (ifelse force-mode = "Tension"  [ ; set up force lines
+    create-fl-ends 2
+    set right-fl xmax
+    set left-edge x-min
+    set orig-length right-fl - left-edge
+    ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+      set xcor right-fl
+      set ycor ymax + (y-dist * 2) ]
+    ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+      set xcor right-fl
+      set ycor y-min - (y-dist * 2)
+      create-fl-link-with one-of other fl-ends with [xcor = right-fl]]
+    ask fl-ends [
+      set color white
+      set heading 90
+    ]
+    if force-mode = "Tension" [
+      set prev-length orig-length
+    ]
+  ]
+    force-mode = "Compression" [
+      create-fl-ends 2
+      set left-fl x-min
+      set right-edge xmax
+      set orig-length right-edge - left-fl
+      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+        set xcor left-fl
+        set ycor max-pycor - (y-dist * 2) ]
+      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+        set xcor left-fl
+        set ycor min-pycor + (y-dist * 2)
+        create-fl-link-with one-of other fl-ends with [xcor = left-fl]]
+      ask fl-ends [
+        set color white
+        set heading 90
+      ]
+    ]
+    force-mode = "Shear" [
+      create-fl-ends 2
+      set upper-left-fl min [xcor] of atoms with [ ycor >= unpinned-min-ycor ]
+      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+        set xcor upper-left-fl
+        set ycor ymax + (y-dist * 2) ]
+      ask one-of fl-ends with [xcor = 0 and ycor = 0] [
+        set xcor upper-left-fl
+        set ycor unpinned-min-ycor
+        hide-turtle
+        create-fl-link-with one-of other fl-ends]
+      ask fl-ends [
+        set color white
+        set heading 90 ]
+  ])
+  ask fl-links [
+    set color white
+  ]
+end
+
+
+
+to mp.setup-floor-and-ceiling
+  if create-floor-and-ceiling? = true [
+    set ceiling-ycor max [ycor] of atoms + r-min
+    set floor-ycor min [ycor] of atoms - r-min
+    
+    crt 1 [
+      set xcor min-pxcor
+      set ycor ceiling-ycor
+      ht
+      hatch 1 [
+        set xcor max-pxcor
+        
+        create-wall-link-with myself [
+          set thickness .3
+        ]
+      ]
+    ]
+    
+    crt 1 [
+      set xcor min-pxcor
+      set ycor floor-ycor
+      ht
+      hatch 1 [
+        set xcor max-pxcor
+        create-wall-link-with myself [
+          set thickness .3
+        ]
+      ]
+    ]
+  ]
+end
+
+to mp.setup-cross-section
+  if force-mode = "Tension" [
+    let xcenter (max-pxcor + min-pxcor) / 2
+    let top-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-max [ycor]
+    let bottom-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-min [ycor]
+    set cross-section top-neck-ycor - bottom-neck-ycor
+  ]
+end
+
+to mp.setup-auto-increment-force
+  if force-mode = "Tension" and auto-increment-force? [
+    set force-applied 0
+    ask atoms with [ ex-force-applied? ]  [
+      set vx 0
+      set vy 0
+    ]
+  ]
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; Runtime Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
+
+to mp.update-lattice-view
+  (ifelse lattice-view = "large-atoms" [
+    ask atoms [
+      show-turtle
+      set size .9
+    ]
+  ]
+  lattice-view = "small-atoms" [
+    ask atoms [
+       show-turtle
+       set size .6
+    ]
+  ]
+  [; lattice-view = hide-atoms
+      ask atoms [ hide-turtle ]
+  ])
+  set prev-lattice-view lattice-view
+end
+
+to mp.calculate-fl-positions ; (calculate new force line positions)
+  (ifelse force-mode = "Shear" [
+      set upper-left-fl min [xcor] of atoms with [ ycor >= unpinned-min-ycor ]
+      ask fl-ends [ set xcor upper-left-fl]
+    ]
+    force-mode = "Tension" [
+      set right-fl max [xcor] of atoms
+      ask fl-ends with [xcor > 0] [ set xcor right-fl ]
+    ]
+    force-mode = "Compression" [
+      set left-fl min [xcor] of atoms
+      ask fl-ends with [xcor < 0] [ set xcor left-fl ]
+    ]
+    )
+  ifelse (force-applied + auto-increment-force) = 0 [
+    ask fl-ends [ hide-turtle ]
+    ask fl-links [ hide-link ]
+  ]
+  [
+    ask fl-ends [ show-turtle ]
+    ask fl-links [ show-link ]
+  ]
+end
+
+; find the atoms closest to the force line that will be the ones receiving the external force
+to mp.identify-force-atoms
+  (ifelse force-mode = "Shear" [
+    ask atoms [ set ex-force-applied?  false ]
+    let forced-atoms atoms with [ ycor >= unpinned-min-ycor and (distancexy upper-left-fl ycor) <= r-min]
+    set num-forced-atoms count forced-atoms
+    ask forced-atoms [
+      set ex-force-applied?  true
+    ]
+    ]
+    force-mode = "Compression" [
+      ask atoms [ set ex-force-applied?  false ]
+      let forced-atoms atoms with [ (distancexy left-fl ycor) <= r-min]
+      set num-forced-atoms count forced-atoms
+      ask forced-atoms [
+        set ex-force-applied?  true
+    ]
+  ]) ; for tension, the same atoms in the left shoulder of the sample always receive the force
+end
+
+to mp.update-force-and-velocity-and-PE
+  ask atoms [
+    let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-1sig
+    let n-fx item 0 force-velocity-PE
+    let n-fy item 1 force-velocity-PE
+    let sum-PE item 2 force-velocity-PE
+    
+    set n-fy n-fy + mp.ceiling-orfloor-force
+    
+    let force-velocity mp.update-external-force n-fx n-fy
+    set n-fx item 0 force-velocity
+    set n-fy item 1 force-velocity
+    
+    mdc.update-force-and-velocity n-fx n-fy
+  ]
+end
+
+to-report mp.ceiling-orfloor-force
+  ifelse create-floor-and-ceiling? = true [
+    ;; apply force in y-direction due to floor and ceiling
+    let f 0
+    (ifelse
+      ycor > (ceiling-ycor - (2 * r-min)) [
+        let ceiling-PE-and-force (mdc.LJ-potential-and-force-1sig (ceiling-ycor - ycor))
+        set f item 1 ceiling-PE-and-force
+        
+      ]
+      ycor < (floor-ycor + (2 * r-min)) [
+        let floor-PE-and-force (mdc.LJ-potential-and-force-1sig (ycor - ceiling-ycor))
+        set f item 1 floor-PE-and-force
+      ]
+    )
+    report f
+  ]
+  [ report 0 ]
+end
+
+to-report mp.update-external-force [ n-fx n-fy ]
+  if not pinned? [
+      ; adjusting the forces to account for any external applied forces
+      let ex-force 0
+      if ex-force-applied? [
+        ifelse force-mode = "Tension" and auto-increment-force? [
+          ; ex-force is enough to cancel out any force plus a little more
+          set ex-force ( - n-fx + 0.001 )
+          ; auto-increment-force reports total ex-force offset in x direction, and force offset in y-direction
+          set auto-increment-force auto-increment-force + ex-force - n-fy
+          set n-fy 0
+        ]
+        [ 
+          set shape "circle-dot"
+          set ex-force ( force-applied / num-forced-atoms ) 
+        ]
+      ]
+      if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
+      set n-fx ex-force + n-fx
+    ]
+  report list n-fx n-fy
+end
+
+to-report mp.strain ; tension only
+  report ((right-fl - left-edge) - orig-length) / orig-length
+end
+
+to-report mp.stress ; tension only
+  report (((-1 * force-applied) + auto-increment-force) / cross-section)
+end
+
+to-report mp.report-indiv-ex-force
+  report (force-applied + auto-increment-force) / num-forced-atoms
+end
+
+to-report mp.report-total-ex-force
+  report force-applied + auto-increment-force
+end
+
+; old LJ with manual offset
+;to-report LJ-potential-and-force [ r ] ; for the force, positive = attractive, negative = repulsive
+;  let third-power (sigma / r) ^ 3
+;  let sixth-power third-power ^ 2
+;  let twelfth-power sixth-power ^ 2
+;  let force (-48 * eps / r ) * (twelfth-power - (1 / 2) * sixth-power) + .0001
+;  let potential (4 * eps * (twelfth-power - sixth-power)) + .00001
+;  report list potential force
+;end
+
+; old vab atom-color 
+;to set-color [v]
+;  set color scale-color blue v -.9 0
+;end

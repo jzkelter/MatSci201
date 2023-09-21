@@ -90,7 +90,7 @@ to set-charge-dependent-vars
 end
 
 to init-velocity
-  let v-avg sqrt( 3 * Kb * temp)
+  let v-avg sqrt( 2 * Kb * temp)
   ask atoms [
     let a random-float 1  ; a random amount of the total velocity to go the x direction
     set vx sqrt (a * v-avg ^ 2) * positive-or-negative
@@ -204,8 +204,8 @@ end
 GRAPHICS-WINDOW
 192
 10
-509
-328
+510
+329
 -1
 -1
 10.0
@@ -296,7 +296,7 @@ temp
 temp
 0.00
 20
-2.0
+1.0
 .1
 1
 NIL

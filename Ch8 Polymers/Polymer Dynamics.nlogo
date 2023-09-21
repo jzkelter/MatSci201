@@ -1,122 +1,88 @@
-__includes [ "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
-
-;; the following breed is for the molecular-dynamics-core.nls file
-breed [atoms atom]
-
-atoms-own [
-  ;; the following variables are for the molecular-dynamics-core.nls file
-  fx     ; x-component of force vector from last time step
-  fy     ; y-component of force vector from last time step
-  vx     ; x-component of velocity vector
-  vy     ; y-component of velocity vector
-  mass   ; mass of atom
-  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
-  atom-PE ; Potential energy of the atom
-  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
-  base-color  ; display color for the atom when it isn't selected
-
-  ;; the following variable is for the atom-editing-procedures.nls file
-  selected? ; whether the atom is selected or  not to change its size
+globals [
+  blues      ;; agentset of all blue turtles
+  oranges    ;; agentset of all orange turtles
 ]
-
-
-;*******************************************************
-;**************** Setup Procedures *********************
-;*******************************************************
 
 to setup
   clear-all
-  mdc.setup-constants
-  mdc.setup-cutoff-linear-functions-2sig
-
-  mdc.setup-atoms-nrc atoms-per-row atoms-per-column
-  mdc.pin-bottom-row
-  ask atoms [aep.init-atom]
-  mdc.init-velocity
-
-  vab.setup-links
-
-  aep.setup-messages
-
+  set-default-shape turtles "circle"
+  ;; create the chain
+  ask patches with [pycor = round (max-pycor / 2) and
+                    pxcor < max-pxcor and
+                    pxcor > min-pxcor]
+    [ ;; turtles on even x coordinates are blue, odd are orange
+      sprout 1 [
+        set color item (pxcor mod 2) [blue orange]
+      ]
+    ]
+  ;; compute and store these agentsets since they won't change
+  ;; during the run
+  set blues turtles with [color = blue]
+  set oranges turtles with [color = orange]
   reset-ticks
 end
 
-
-;*******************************************************
-;**************** Go Procedures *********************
-;*******************************************************
-
 to go
-  simulate
-  interact
+  ask blues   [ move ]
+  ask oranges [ move ]
+  tick
+end
+
+to move  ;; turtle procedure
+  ;; choose a heading, and before moving the monomer,
+  ;; checks if the move would break or cross the chain
+  face one-of neighbors4
+  if not breaking-chain? and not crossing-chain?
+    [ fd 1 ]
+end
+
+to-report breaking-chain?  ;; turtle procedure
+  ;; checks if moving the turtle would break the chain
+  report (heading = 0 and any? turtles at-points [[-1 -1] [0 -1] [1 -1]])
+           or
+         (heading = 90 and any? turtles at-points [[-1 -1] [-1 0] [-1 1]])
+           or
+         (heading = 180 and any? turtles at-points [[-1 1] [0 1] [1 1]])
+           or
+         (heading = 270 and any? turtles at-points [[1 -1] [1 0] [1 1]])
+end
+
+to-report crossing-chain?  ;; turtle procedure
+  ;; checks if moving the turtle would cross the chain
+  report (heading = 0 and any? turtles at-points [[-1 2] [0 2] [1 2]])
+           or
+         (heading = 90 and any? turtles at-points [[2 -1] [2 0] [2 1]])
+           or
+         (heading = 180 and any? turtles at-points [[-1 -2] [0 -2] [1 -2]])
+           or
+         (heading = 270 and any? turtles at-points [[-2 -1] [-2 0] [-2 1]])
 end
 
 
-to simulate
-  aep.update-atom-size-viz
-
-  ask atom-links [ die ]
-
-  ; moving happens before velocity and force update in accordance with velocity verlet
-  mdc.move-atoms
-
-  mdc.update-force-and-velocity-and-PE-2sig
-  vab.update-atom-color-and-links
-
-  mdc.scale-velocities
-
-  vab.color-links  ; stylizing/coloring links
-
-  tick-advance dt
-  update-plots
-end
-
-to interact
-  (ifelse
-    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-2sig]
-    click-mode = "delete-atoms" [aep.delete-atoms]
-    click-mode = "add-atoms" [aep.add-atoms new-atom-color new-atom-sigma]
-    click-mode = "select-atoms" [aep.select-atoms]
-    )
-end
-
-
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
-
-
-
-
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
-
-
-; Copyright 2020 Uri Wilensky.
+; Copyright 2005 Uri Wilensky.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-190
+121
 10
-538
-359
+769
+339
 -1
 -1
-48.6
+4.0
 1
 10
 1
 1
 1
 0
-0
-0
 1
--3
-3
--3
-3
+1
+1
+0
+159
+0
+79
 1
 1
 1
@@ -124,10 +90,10 @@ ticks
 30.0
 
 BUTTON
-0
-90
-80
-123
+20
+35
+95
+68
 NIL
 setup
 NIL
@@ -141,10 +107,10 @@ NIL
 1
 
 BUTTON
-85
-90
-170
-123
+20
+125
+95
+158
 NIL
 go
 T
@@ -157,172 +123,13 @@ NIL
 NIL
 0
 
-SLIDER
-0
-130
-175
-163
-temp
-temp
-0
-.2
-0.02
-.01
-1
-NIL
-HORIZONTAL
-
-SWITCH
-560
-150
-832
-183
-color-atoms-by-potential-energy?
-color-atoms-by-potential-energy?
-0
-1
--1000
-
-SWITCH
-560
-45
-790
-78
-show-diagonal-right-links?
-show-diagonal-right-links?
-0
-1
--1000
-
-SWITCH
-560
-80
-790
-113
-show-diagonal-left-links?
-show-diagonal-left-links?
-0
-1
--1000
-
-SWITCH
-560
-115
-790
-148
-show-horizontal-links?
-show-horizontal-links?
-0
-1
--1000
-
-TEXTBOX
-560
-195
-710
-213
-NIL
-11
-0.0
-1
-
-TEXTBOX
-560
-195
-710
-235
-Color Key\nLinks:
-12
-0.0
-1
-
-TEXTBOX
-565
-230
-740
-248
-high compression: dark red
-11
-13.0
-1
-
-TEXTBOX
-565
-245
-835
-263
-low compression: light red (+ grey tone)
-11
-18.0
-1
-
-TEXTBOX
-564
-259
-714
-277
-equilibrium: grey
-11
-5.0
-1
-
-TEXTBOX
-564
-272
-834
-300
-low tension: light yellow (+ grey tone)
-11
-0.0
-1
-
-TEXTBOX
-565
-288
-725
-306
-high tension: dark yellow
-11
-44.0
-1
-
-TEXTBOX
-560
-305
-715
-323
-Atoms:
-12
-0.0
-1
-
-TEXTBOX
-565
-320
-835
-338
-low potential energy: dark blue
-11
-103.0
-1
-
-TEXTBOX
-565
-335
-850
-363
-high potential energy: light blue (-> white)
-11
-107.0
-1
-
 BUTTON
+20
+80
 95
-230
-180
-263
-increase-size
-aep.change-atom-size .1
+113
+go once
+go
 NIL
 1
 T
@@ -331,136 +138,94 @@ NIL
 NIL
 NIL
 NIL
-1
-
-BUTTON
 0
-230
-85
-263
-decrease-size
-aep.change-atom-size (- .1)
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-SLIDER
-560
-10
-737
-43
-atom-viz-size
-atom-viz-size
-0
-1.1
-0.9
-.1
-1
-sigma
-HORIZONTAL
-
-SLIDER
-0
-325
-180
-358
-new-atom-sigma
-new-atom-sigma
-.2
-1.3
-1.0
-.1
-1
-NIL
-HORIZONTAL
-
-CHOOSER
-75
-275
-180
-320
-new-atom-color
-new-atom-color
-"red" "violet" "green" "orange" "blue"
-0
-
-CHOOSER
-40
-170
-145
-215
-click-mode
-click-mode
-"drag-atoms" "delete-atoms" "add-atoms" "select-atoms"
-0
-
-TEXTBOX
-0
-275
-80
-325
-settings for adding new atoms
-12
-0.0
-1
-
-TEXTBOX
-5
-215
-175
-241
-For changing selected atoms
-12
-0.0
-1
-
-SLIDER
-0
-10
-172
-43
-atoms-per-row
-atoms-per-row
-1
-5
-5.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-0
-50
-172
-83
-atoms-per-column
-atoms-per-column
-1
-5
-5.0
-1
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-295
-330
-445
-348
-Atoms with X don't move
-11
-9.9
-1
 
 @#$#@#$#@
+## WHAT IS IT?
+
+This model simulates the motion of a simple polymer.  Polymers are simply long chains of identical, smaller molecules called monomers, which often have some mobility, causing many polymers to be flexible.  Many common materials and chemical substances are polymers, for example plastics and proteins.
+
+## HOW IT WORKS
+
+The polymer is modeled using a cellular automaton approach involving only local interactions.
+
+Initially the monomers are colored alternating orange and blue.  Blue monomers interact only with their two neighboring orange monomers, and vice versa.
+
+Movement occurs in two alternating phases, one for the orange monomers, one for the blue.  For each monomer (of the appropriate color) a random direction to move in is chosen.  Before making the actual move we check if the move would cause the chain to either break or cross itself.  If not, the monomer moves one step in that direction.
+
+To check if a move will break the chain, we see if the moving monomer will leave a blank patch behind it.  To check if it will cross the chain, we see if the movement will cause the monomer to be next to another piece of the chain in front of it.
+
+## HOW TO USE IT
+
+SETUP: initializes the simulation
+
+GO: starts the simulation
+
+GO ONCE: advances the simulation one step only
+
+## THINGS TO NOTICE
+
+One interesting thing to notice is that, despite all the interactions being local, the polymer has a very realistic macroscopic movement.
+
+## THINGS TO TRY
+
+Try a much longer polymer.  This is done by making the world size bigger.  (You'll probably want to reduce the patch size.)
+
+Slow down the simulation, and observe the local interaction closely.
+
+Activate the 3D view, and try to follow a turtle.
+
+## EXTENDING THE MODEL
+
+Measure the distance between the two ends of the polymer and plot how it changes over time.
+
+Are other movement rules possible, without causing the chain to break or cross?
+
+Try having different mobility for different kinds of monomers.
+
+Make a preferential direction for movement, determined by a slider.
+
+Allow monomers to break apart from the polymer, in some particular situations.  Why might this happen?
+
+## NETLOGO FEATURES
+
+In order for the model to operate correctly on a torus, the dimensions of the world must be even, so we put the world origin in the corner.
+
+## RELATED MODELS
+
+CA 1D Elementary - an introduction to cellular automata
+Life Turtle-Based - a cellular automaton implemented, like this one, using turtles
+Radical Polymerization - another model about polymers
+
+## CREDITS AND REFERENCES
+
+For a detailed treatment of this model, see Yaneer Bar-Yam, Dynamics of Complex Systems (2003), pages 496-502.  Westview Press, Boulder, CO.  The book is available online at https://necsi.edu/dynamics-of-complex-systems.
+
+See also Y. Bar-Yam, Y. Rabin, M. A. Smith, Macromolecules Rep. 25 (1992) 2985.
+
+## HOW TO CITE
+
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
+
+For the model itself:
+
+* Wilensky, U. (2005).  NetLogo Polymer Dynamics model.  http://ccl.northwestern.edu/netlogo/models/PolymerDynamics.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+Please cite the NetLogo software as:
+
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+## COPYRIGHT AND LICENSE
+
+Copyright 2005 Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
+
+<!-- 2005 -->
 @#$#@#$#@
 default
 true
@@ -528,41 +293,6 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
-
-circle+
-false
-0
-Circle -7500403 true true 0 0 300
-Rectangle -16777216 true false 0 135 300 165
-Rectangle -16777216 true false 135 -15 165 300
-
-circle-dot
-true
-0
-Circle -7500403 true true 0 0 300
-Circle -16777216 true false 88 88 124
-
-circle-s
-false
-0
-Circle -7500403 true true 0 0 300
-Line -1 false 210 60 120 60
-Line -1 false 90 90 90 120
-Line -1 false 120 150 180 150
-Line -1 false 210 180 210 210
-Line -1 false 90 240 180 240
-Line -7500403 true 90 90 120 60
-Line -1 false 120 60 90 90
-Line -1 false 90 120 120 150
-Line -1 false 180 150 210 180
-Line -1 false 210 210 180 240
-
-circle-x
-false
-0
-Circle -7500403 true true 0 0 300
-Polygon -16777216 true false 240 30 30 240 60 270 270 60
-Polygon -16777216 true false 30 60 240 270 270 240 60 30
 
 cow
 false
@@ -796,5 +526,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-1
+0
 @#$#@#$#@
