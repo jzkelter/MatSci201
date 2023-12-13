@@ -23,6 +23,7 @@ atoms-own [
   selected? ; whether the atom is selected or  not to change its size
 ]
 
+globals [the-substitution]
 
 ;*******************************************************
 ;**************** Setup Procedures *********************
@@ -35,12 +36,12 @@ to setup
   mdc.setup-atoms-nrc 5 5
   mdc.pin-bottom-row
   ask atoms [aep.init-atom]
-  setup-interstitial
-
   mdc.update-force-and-velocity-and-PE-2sig
   mdc.init-velocity
 
   vab.setup-links
+
+  setup-substitution
 
   aep.setup-messages
 
@@ -48,18 +49,16 @@ to setup
 end
 
 
-to setup-interstitial
-  create-atoms 1 [
-    ; setxy 0.5612310241546858  0.3240268828732776
-    setxy 0.021186034506860775 0.6295806514946801
+to setup-substitution
+  ask min-one-of atoms [distancexy 0 0] [
     set shape "circle"
-    set color red
-    set sigma 0.2
-    set mass sigma ^ 2
+    set color violet
     set pinned? false
     set selected? true
     set base-color red
     aep.set-size
+    set label "σ=1"
+    set the-substitution self
   ]
 end
 
@@ -96,18 +95,7 @@ to interact
 end
 
 
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
 
-
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
-
-
-
-; Copyright 2020 Uri Wilensky.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -119,7 +107,7 @@ GRAPHICS-WINDOW
 -1
 48.6
 1
-10
+12
 1
 1
 1
@@ -336,7 +324,7 @@ BUTTON
 180
 143
 increase-size
-aep.change-atom-size .1
+aep.change-atom-size .1\nask the-substitution [set label sigma]
 NIL
 1
 T
@@ -353,7 +341,7 @@ BUTTON
 85
 143
 decrease-size
-aep.change-atom-size (- .1)
+aep.change-atom-size (- .1)\nask the-substitution [set label sigma]
 NIL
 1
 T
@@ -380,16 +368,6 @@ sigma
 HORIZONTAL
 
 TEXTBOX
-5
-90
-175
-116
-For changing interstitial atom
-12
-0.0
-1
-
-TEXTBOX
 295
 330
 445
@@ -401,16 +379,16 @@ Atoms with X don't move
 
 PLOT
 0
-205
+200
 185
-355
+360
 Total PE of system
 NIL
 NIL
 0.0
 10.0
--64.0
--59.0
+-61.0
+-53.0
 true
 false
 "" ""
@@ -418,10 +396,10 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot sum [atom-pe] of atoms"
 
 MONITOR
-40
-155
-155
-200
+35
+150
+157
+195
 Total PE of System
 sum [atom-pe] of atoms
 2

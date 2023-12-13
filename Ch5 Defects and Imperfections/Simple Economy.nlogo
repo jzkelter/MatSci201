@@ -1,123 +1,56 @@
-__includes [
-  "../nls-files/molecular-dynamics-core.nls"
-  "../nls-files/atom-editing-procedures.nls"
-  "../nls-files/visualize-atoms-and-bonds.nls"
-]
-
-;; the following breed is for the molecular-dynamics-core.nls file
-breed [atoms atom]
-
-atoms-own [
-  ;; the following variables are for the molecular-dynamics-core.nls file
-  fx     ; x-component of force vector from last time step
-  fy     ; y-component of force vector from last time step
-  vx     ; x-component of velocity vector
-  vy     ; y-component of velocity vector
-  mass   ; mass of atom
-  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
-  atom-PE ; Potential energy of the atom
-  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
-  base-color  ; display color for the atom when it isn't selected
-
-  ;; the following variable is for the atom-editing-procedures.nls file
-  selected? ; whether the atom is selected or  not to change its size
-]
-
-
-;*******************************************************
-;**************** Setup Procedures *********************
-;*******************************************************
+turtles-own [ wealth ]
 
 to setup
   clear-all
-  mdc.setup-constants
-  mdc.setup-cutoff-linear-functions-2sig
-  mdc.setup-atoms-nrc 5 5
-  mdc.pin-bottom-row
-  ask atoms [aep.init-atom]
-  setup-interstitial
+  create-turtles 1000 [
+    set wealth 100
+    set shape "circle"
+    set color green
+    set size 2
 
-  mdc.update-force-and-velocity-and-PE-2sig
-  mdc.init-velocity
-
-  vab.setup-links
-
-  aep.setup-messages
-
+    ;; visualize the turtles from left to right in ascending order of wealth
+    setxy wealth random-ycor
+  ]
   reset-ticks
 end
 
-
-to setup-interstitial
-  create-atoms 1 [
-    ; setxy 0.5612310241546858  0.3240268828732776
-    setxy 0.021186034506860775 0.6295806514946801
-    set shape "circle"
-    set color red
-    set sigma 0.2
-    set mass sigma ^ 2
-    set pinned? false
-    set selected? true
-    set base-color red
-    aep.set-size
-  ]
-end
-
-
-;*******************************************************
-;**************** Go Procedures ************************
-;*******************************************************
-
 to go
-  simulate
-  interact
+  ;; transact and then update your location
+  ask turtles with [ wealth > 0 ] [ transact ]
+  ;; prevent wealthy turtles from moving too far to the right -- that is, outside the view
+  ask turtles [ if wealth <= max-pxcor [ set xcor wealth ] ]
+  tick
+end
+
+to transact
+  ;; give a dollar to another turtle
+  set wealth wealth - 1
+  ask one-of other turtles [ set wealth wealth + 1 ]
+end
+
+;; report the total wealth of the top 10% of turtles
+to-report top-10-pct-wealth
+  report sum [ wealth ] of max-n-of (count turtles * 0.10) turtles [ wealth ]
 end
 
 
-to simulate
-  aep.update-atom-size-viz
-
-  ask atom-links [ die ]
-
-  ; moving happens before velocity and force update in accordance with velocity verlet
-  mdc.move-atoms
-
-  mdc.update-force-and-velocity-and-PE-2sig
-  vab.update-atom-color-and-links
-  mdc.scale-velocities
-  vab.color-links  ; stylizing/coloring links
-
-  tick-advance dt
-  update-plots
-end
-
-to interact
-  mdc.drag-atoms-with-mouse-2sig
+;; report the total wealth of the bottom half of turtles
+to-report bottom-50-pct-wealth
+  report sum [ wealth ] of min-n-of (count turtles * 0.50) turtles [ wealth ]
 end
 
 
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
-
-
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
-
-
-
-; Copyright 2020 Uri Wilensky.
+; Copyright 2011 Uri Wilensky.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-190
-10
-538
-359
+233
+16
+742
+106
 -1
 -1
-48.6
+1.0
 1
 10
 1
@@ -127,10 +60,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--3
-3
--3
-3
+0
+500
+0
+80
 1
 1
 1
@@ -138,10 +71,10 @@ ticks
 30.0
 
 BUTTON
-0
-10
-80
-43
+7
+46
+96
+79
 NIL
 setup
 NIL
@@ -155,10 +88,10 @@ NIL
 1
 
 BUTTON
-85
-10
-170
-43
+112
+46
+197
+79
 NIL
 go
 T
@@ -171,264 +104,116 @@ NIL
 NIL
 0
 
-SLIDER
-0
-50
-175
-83
-temp
-temp
-0
-.2
-0.02
-.01
-1
-NIL
-HORIZONTAL
-
-SWITCH
-560
-150
-832
-183
-color-atoms-by-PE?
-color-atoms-by-PE?
-0
-1
--1000
-
-SWITCH
-560
-45
-790
-78
-show-diagonal-right-links?
-show-diagonal-right-links?
-0
-1
--1000
-
-SWITCH
-560
-80
-790
-113
-show-diagonal-left-links?
-show-diagonal-left-links?
-0
-1
--1000
-
-SWITCH
-560
-115
-790
-148
-show-horizontal-links?
-show-horizontal-links?
-0
-1
--1000
-
-TEXTBOX
-560
-195
-710
-213
-NIL
-11
-0.0
-1
-
-TEXTBOX
-560
-195
-710
-235
-Color Key\nLinks:
-12
-0.0
-1
-
-TEXTBOX
-565
-230
-740
-248
-high compression: dark red
-11
-13.0
-1
-
-TEXTBOX
-565
-245
-835
-263
-low compression: light red (+ grey tone)
-11
-18.0
-1
-
-TEXTBOX
-564
-259
-714
-277
-equilibrium: grey
-11
-5.0
-1
-
-TEXTBOX
-564
-272
-834
-300
-low tension: light yellow (+ grey tone)
-11
-0.0
-1
-
-TEXTBOX
-565
-288
-725
-306
-high tension: dark yellow
-11
-44.0
-1
-
-TEXTBOX
-560
-305
-715
-323
-Atoms:
-12
-0.0
-1
-
-TEXTBOX
-565
-320
-835
-338
-low potential energy: dark blue
-11
-103.0
-1
-
-TEXTBOX
-565
-335
-850
-363
-high potential energy: light blue (-> white)
-11
-107.0
-1
-
-BUTTON
-95
-110
-180
-143
-increase-size
-aep.change-atom-size .1
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-0
-110
-85
-143
-decrease-size
-aep.change-atom-size (- .1)
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-SLIDER
-560
-10
-737
-43
-atom-viz-size
-atom-viz-size
-0
-1.1
-0.8
-.1
-1
-sigma
-HORIZONTAL
-
-TEXTBOX
-5
-90
-175
-116
-For changing interstitial atom
-12
-0.0
-1
-
-TEXTBOX
-295
-330
-445
-348
-Atoms with X don't move
-11
-9.9
-1
-
 PLOT
-0
-205
-185
-355
-Total PE of system
-NIL
-NIL
+235
+115
+746
+327
+wealth distribution
+wealth
+turtles
 0.0
-10.0
--64.0
--59.0
+500.0
+0.0
+40.0
 true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot sum [atom-pe] of atoms"
+"current" 5.0 1 -10899396 true "" "set-plot-y-range 0 40\nhistogram [ wealth ] of turtles"
 
-MONITOR
-40
-155
-155
-200
-Total PE of System
-sum [atom-pe] of atoms
-2
-1
+TEXTBOX
+565
+148
+720
+178
+Total wealth = $50,000
 11
+0.0
+1
 
 @#$#@#$#@
+## ACKNOWLEDGMENT
+
+This model is from Chapter Two of the book "Introduction to Agent-Based Modeling: Modeling Natural, Social and Engineered Complex Systems with NetLogo", by Uri Wilensky & William Rand.
+
+* Wilensky, U. & Rand, W. (2015). Introduction to Agent-Based Modeling: Modeling Natural, Social and Engineered Complex Systems with NetLogo. Cambridge, MA. MIT Press.
+
+This model is in the IABM Textbook folder of the NetLogo Models Library. The model, as well as any updates to the model, can also be found on the textbook website: http://www.intro-to-abm.com/.
+
+## WHAT IS IT?
+
+This model is a very simple model of economic exchange.  It is a thought experiment of  a world where, in every time step, each person gives one dollar to one other person (at random) if they have any money to give.  If they have no money then they do not give out any money.
+
+## HOW IT WORKS
+
+The SETUP for the model creates 500 agents, and then gives them each 100 dollars.  At each tick, they give one dollar to another agent if they can.  If they have no money then they do nothing. Each agent also moves to an x-coordinate equal to its wealth.
+
+## HOW TO USE IT
+
+Press SETUP to setup the model, then press GO to watch the model develop.
+
+## THINGS TO NOTICE
+
+Examine the various graphs and see how the model unfolds. Let it run for many ticks. The WEALTH DISTRIBUTION graph will change shape dramatically as time goes on. What happens to the WEALTH BY PERCENT graph over time?
+
+## THINGS TO TRY
+
+Try running the model for many thousands of ticks. Does the distribution stabilize? How can you measure stabilization? Keep track of some individual agents. How do they move? Track the wealth of the wealthiest and poorest turtles. How do they change?
+
+Change the number of turtles. Does this affect the results?
+
+## EXTENDING THE MODEL
+
+Change the rules so agents can go into debt. Does this affect the results?
+
+Change the basic transaction rule of the model. What happens if the turtles exchange more than one dollar? How about if they give a random amount to another agent at each tick? Change the rules so that the richer agents have a better chance of being given money. Then try using a smaller chance. Or try a rule that says they give a percentage of their money rather than just $1. How does this change the results?
+
+## NETLOGO FEATURES
+
+NetLogo plots have an auto scaling feature that allows a plot's x range and y range to grow automatically, but not to shrink. We do, however, want the y range of the WEALTH DISTRIBUTION histogram to shrink since we start with all 500 turtles having the same wealth (producing a single high bar in the histogram), but the distribution of wealth eventually flattens to a point where no particular bin has more than 40 turtles in it.
+
+To get NetLogo to correctly adjust the histogram's y range, we use [`set-plot-y-range 0 40`](http://ccl.northwestern.edu/netlogo/docs/dictionary.html#set-plot-y-range) in the histogram's pen update commands and let auto scaling set the maximum higher if needed.
+
+## RELATED MODELS
+
+Wealth Distribution.
+
+## CREDITS AND REFERENCES
+
+Models of this kind are described in:
+
+* Dragulescu, A. & V.M. Yakovenko, V.M. (2000).  Statistical Mechanics of Money. European Physics Journal B.
+
+## HOW TO CITE
+
+This model is part of the textbook, “Introduction to Agent-Based Modeling: Modeling Natural, Social and Engineered Complex Systems with NetLogo.”
+
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
+
+For the model itself:
+
+* Wilensky, U. (2011).  NetLogo Simple Economy model.  http://ccl.northwestern.edu/netlogo/models/SimpleEconomy.  Center for Connected Learning and Computer-Based Modeling, Northwestern Institute on Complex Systems, Northwestern University, Evanston, IL.
+
+Please cite the NetLogo software as:
+
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+Please cite the textbook as:
+
+* Wilensky, U. & Rand, W. (2015). Introduction to Agent-Based Modeling: Modeling Natural, Social and Engineered Complex Systems with NetLogo. Cambridge, MA. MIT Press.
+
+## COPYRIGHT AND LICENSE
+
+Copyright 2011 Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
+
+<!-- 2011 -->
 @#$#@#$#@
 default
 true
@@ -496,41 +281,6 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
-
-circle+
-false
-0
-Circle -7500403 true true 0 0 300
-Rectangle -16777216 true false 0 135 300 165
-Rectangle -16777216 true false 135 -15 165 300
-
-circle-dot
-true
-0
-Circle -7500403 true true 0 0 300
-Circle -16777216 true false 88 88 124
-
-circle-s
-false
-0
-Circle -7500403 true true 0 0 300
-Line -1 false 210 60 120 60
-Line -1 false 90 90 90 120
-Line -1 false 120 150 180 150
-Line -1 false 210 180 210 210
-Line -1 false 90 240 180 240
-Line -7500403 true 90 90 120 60
-Line -1 false 120 60 90 90
-Line -1 false 90 120 120 150
-Line -1 false 180 150 210 180
-Line -1 false 210 210 180 240
-
-circle-x
-false
-0
-Circle -7500403 true true 0 0 300
-Polygon -16777216 true false 240 30 30 240 60 270 270 60
-Polygon -16777216 true false 30 60 240 270 270 240 60 30
 
 cow
 false
@@ -749,6 +499,7 @@ Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
 NetLogo 6.4.0
 @#$#@#$#@
+resize-world 0 500 0 500 setup ask turtles [ set size 5 ] repeat 150 [ go ]
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
@@ -764,5 +515,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-1
+0
 @#$#@#$#@

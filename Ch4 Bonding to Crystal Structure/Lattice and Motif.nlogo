@@ -1,434 +1,311 @@
-__includes [
-  "../nls-files/molecular-dynamics-core.nls"
-  "../nls-files/atom-editing-procedures.nls"
-  "../nls-files/visualize-atoms-and-bonds.nls"
-]
-
-;; the following breed is for the molecular-dynamics-core.nls file
+breed [lattice-points lattice-point]
 breed [atoms atom]
 
-atoms-own [
-  ;; the following variables are for the molecular-dynamics-core.nls file
-  fx     ; x-component of force vector from last time step
-  fy     ; y-component of force vector from last time step
-  vx     ; x-component of velocity vector
-  vy     ; y-component of velocity vector
-  mass   ; mass of atom
-  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
-  atom-PE ; Potential energy of the atom
-  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
-  base-color  ; display color for the atom when it isn't selected
-
-  ;; the following variable is for the atom-editing-procedures.nls file
-  selected? ; whether the atom is selected or  not to change its size
-]
-
-
-;*******************************************************
-;**************** Setup Procedures *********************
-;*******************************************************
-
-to setup
-  clear-all
-  mdc.setup-constants
-  mdc.setup-cutoff-linear-functions-2sig
-  mdc.setup-atoms-nrc 5 5
-  mdc.pin-bottom-row
-  ask atoms [aep.init-atom]
-  setup-interstitial
-
-  mdc.update-force-and-velocity-and-PE-2sig
-  mdc.init-velocity
-
-  vab.setup-links
-
-  aep.setup-messages
-
-  reset-ticks
+to setup-unit-cells
+  ca
+  setup-lattice-points
+  draw-unit-cells
 end
 
 
-to setup-interstitial
-  create-atoms 1 [
-    ; setxy 0.5612310241546858  0.3240268828732776
-    setxy 0.021186034506860775 0.6295806514946801
-    set shape "circle"
-    set color red
-    set sigma 0.2
-    set mass sigma ^ 2
-    set pinned? false
-    set selected? true
-    set base-color red
-    aep.set-size
+to setup-lattice-points
+  set-default-shape turtles "circle"
+
+  create-lattice-points ((world-width / A) - 4) [
+    set xcor who * A - 0.5
+    set ycor -0.5
+    set size .1
+    set color white
+  ]
+
+  ask lattice-points [
+    let B-count 1
+    let h B * sin α
+    hatch ((world-height / h) - 3) [
+      set heading 90
+      lt α
+      fd B * B-count
+      set B-count B-count + 1
+    ]
   ]
 end
 
+to draw-unit-cells
+  clear-drawing
+  ask lattice-points [
+    draw-unit-cell
+  ]
 
-;*******************************************************
-;**************** Go Procedures ************************
-;*******************************************************
+end
 
-to go
-  simulate
-  interact
+to draw-unit-cell
+
+  if (any? turtles with [ycor > [ycor] of myself])
+  and (any? turtles with [ycor = [ycor] of myself and xcor > [xcor] of myself])  [
+    pen-down
+    let β (180 - α)
+    set heading 90 ; in NetLogo, a heading of 90 is facing to the right
+    lt α
+
+    repeat 2 [
+      fd B
+      rt α
+      fd A
+      rt β
+    ]
+    pen-up
+    ]
 end
 
 
-to simulate
-  aep.update-atom-size-viz
-
-  ask atom-links [ die ]
-
-  ; moving happens before velocity and force update in accordance with velocity verlet
-  mdc.move-atoms
-
-  mdc.update-force-and-velocity-and-PE-2sig
-  vab.update-atom-color-and-links
-  mdc.scale-velocities
-  vab.color-links  ; stylizing/coloring links
-
-  tick-advance dt
-  update-plots
+to add-motifs
+  ask  lattice-points [
+    add-motif
+  ]
 end
 
-to interact
-  mdc.drag-atoms-with-mouse-2sig
+to add-motif
+  run motif
 end
 
 
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
+to motif-1
+  hatch 1 [
+    set breed atoms
+    set color blue
+    set size .4
 
+  ]
 
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
+;  hatch 1 [
+;    set breed atoms
+;    set color blue
+;    set size .4
+;
+;    set heading 90
+;    lt α
+;    fd B
+;  ]
+end
 
+to motif-2
+  hatch 1 [
+    set breed atoms
+    set color red
+    set size .2
+    set heading 90
+    lt α
+    fd B / 2
+    set heading 90
+    fd A / 2
+  ]
 
+end
 
-; Copyright 2020 Uri Wilensky.
-; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-190
+230
 10
-538
-359
+736
+417
 -1
 -1
-48.6
+49.9
 1
 10
 1
 1
 1
 0
+1
+1
+1
+-1
+8
+-1
+6
 0
 0
-1
--3
-3
--3
-3
-1
-1
 1
 ticks
 30.0
 
-BUTTON
-0
-10
-80
-43
-NIL
-setup
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-85
-10
-170
-43
-NIL
-go
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
-
 SLIDER
-0
-50
-175
-83
-temp
-temp
-0
-.2
-0.02
-.01
-1
-NIL
-HORIZONTAL
-
-SWITCH
-560
-150
-832
-183
-color-atoms-by-PE?
-color-atoms-by-PE?
-0
-1
--1000
-
-SWITCH
-560
-45
-790
-78
-show-diagonal-right-links?
-show-diagonal-right-links?
-0
-1
--1000
-
-SWITCH
-560
-80
-790
-113
-show-diagonal-left-links?
-show-diagonal-left-links?
-0
-1
--1000
-
-SWITCH
-560
-115
-790
-148
-show-horizontal-links?
-show-horizontal-links?
-0
-1
--1000
-
-TEXTBOX
-560
-195
-710
-213
-NIL
-11
-0.0
-1
-
-TEXTBOX
-560
-195
-710
-235
-Color Key\nLinks:
-12
-0.0
-1
-
-TEXTBOX
-565
-230
-740
-248
-high compression: dark red
-11
-13.0
-1
-
-TEXTBOX
-565
-245
-835
-263
-low compression: light red (+ grey tone)
-11
-18.0
-1
-
-TEXTBOX
-564
-259
-714
-277
-equilibrium: grey
-11
-5.0
-1
-
-TEXTBOX
-564
-272
-834
-300
-low tension: light yellow (+ grey tone)
-11
-0.0
-1
-
-TEXTBOX
-565
-288
-725
-306
-high tension: dark yellow
-11
-44.0
-1
-
-TEXTBOX
-560
-305
-715
-323
-Atoms:
-12
-0.0
-1
-
-TEXTBOX
-565
-320
-835
-338
-low potential energy: dark blue
-11
-103.0
-1
-
-TEXTBOX
-565
-335
-850
-363
-high potential energy: light blue (-> white)
-11
-107.0
-1
-
-BUTTON
-95
-110
-180
-143
-increase-size
-aep.change-atom-size .1
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-0
-110
-85
-143
-decrease-size
-aep.change-atom-size (- .1)
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-SLIDER
-560
+4
 10
-737
+176
 43
-atom-viz-size
-atom-viz-size
-0
-1.1
-0.8
+A
+A
+0.5
+2
+1.2
 .1
 1
-sigma
+NIL
 HORIZONTAL
 
-TEXTBOX
+SLIDER
 5
-90
-175
-116
-For changing interstitial atom
-12
-0.0
-1
-
-TEXTBOX
-295
-330
-445
-348
-Atoms with X don't move
-11
-9.9
-1
-
-PLOT
-0
-205
-185
-355
-Total PE of system
-NIL
-NIL
-0.0
-10.0
--64.0
--59.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot sum [atom-pe] of atoms"
-
-MONITOR
-40
-155
-155
-200
-Total PE of System
-sum [atom-pe] of atoms
+48
+177
+81
+B
+B
+.5
 2
+1.0
+.1
 1
-11
+NIL
+HORIZONTAL
+
+SLIDER
+5
+87
+177
+120
+α
+α
+60
+120
+80.0
+1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+90
+135
+222
+168
+NIL
+setup-unit-cells
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+125
+175
+225
+208
+NIL
+draw-unit-cells
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+0
+175
+121
+208
+draw-one-unit-cell
+ask turtle 0 [draw-unit-cell]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+0
+335
+121
+368
+draw-one-motif
+ask turtle 0 [add-motif]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+125
+335
+226
+368
+NIL
+add-motifs
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+CHOOSER
+80
+285
+218
+330
+motif
+motif
+"motif-1" "motif-2"
+0
 
 @#$#@#$#@
+## WHAT IS IT?
+
+(a general understanding of what the model is trying to show or explain)
+
+## HOW IT WORKS
+
+(what rules the agents use to create the overall behavior of the model)
+
+## HOW TO USE IT
+
+(how to use the model, including a description of each of the items in the Interface tab)
+
+## THINGS TO NOTICE
+
+(suggested things for the user to notice while running the model)
+
+## THINGS TO TRY
+
+(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+
+## EXTENDING THE MODEL
+
+(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+
+## NETLOGO FEATURES
+
+(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+
+## RELATED MODELS
+
+(models in the NetLogo Models Library and elsewhere which are of related interest)
+
+## CREDITS AND REFERENCES
+
+(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
 @#$#@#$#@
 default
 true
@@ -496,41 +373,6 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
-
-circle+
-false
-0
-Circle -7500403 true true 0 0 300
-Rectangle -16777216 true false 0 135 300 165
-Rectangle -16777216 true false 135 -15 165 300
-
-circle-dot
-true
-0
-Circle -7500403 true true 0 0 300
-Circle -16777216 true false 88 88 124
-
-circle-s
-false
-0
-Circle -7500403 true true 0 0 300
-Line -1 false 210 60 120 60
-Line -1 false 90 90 90 120
-Line -1 false 120 150 180 150
-Line -1 false 210 180 210 210
-Line -1 false 90 240 180 240
-Line -7500403 true 90 90 120 60
-Line -1 false 120 60 90 90
-Line -1 false 90 120 120 150
-Line -1 false 180 150 210 180
-Line -1 false 210 210 180 240
-
-circle-x
-false
-0
-Circle -7500403 true true 0 0 300
-Polygon -16777216 true false 240 30 30 240 60 270 270 60
-Polygon -16777216 true false 30 60 240 270 270 240 60 30
 
 cow
 false
@@ -657,6 +499,22 @@ Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
 Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
 Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
 
+sheep
+false
+15
+Circle -1 true true 203 65 88
+Circle -1 true true 70 65 162
+Circle -1 true true 150 105 120
+Polygon -7500403 true false 218 120 240 165 255 165 278 120
+Circle -7500403 true false 214 72 67
+Rectangle -1 true true 164 223 179 298
+Polygon -1 true true 45 285 30 285 30 240 15 195 45 210
+Circle -1 true true 3 83 150
+Rectangle -1 true true 65 221 80 296
+Polygon -1 true true 195 285 210 285 210 240 240 210 195 210
+Polygon -7500403 true false 276 85 285 105 302 99 294 83
+Polygon -7500403 true false 219 85 210 105 193 99 201 83
+
 square
 false
 0
@@ -741,13 +599,20 @@ Line -7500403 true 40 84 269 221
 Line -7500403 true 40 216 269 79
 Line -7500403 true 84 40 221 269
 
+wolf
+false
+0
+Polygon -16777216 true false 253 133 245 131 245 133
+Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
+Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
+
 x
 false
 0
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.4.0
+NetLogo 6.4.0-beta1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@

@@ -1,123 +1,88 @@
-__includes [
-  "../nls-files/molecular-dynamics-core.nls"
-  "../nls-files/atom-editing-procedures.nls"
-  "../nls-files/visualize-atoms-and-bonds.nls"
-]
-
-;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
+breed [vacancies vacancy]
 
 atoms-own [
-  ;; the following variables are for the molecular-dynamics-core.nls file
-  fx     ; x-component of force vector from last time step
-  fy     ; y-component of force vector from last time step
-  vx     ; x-component of velocity vector
-  vy     ; y-component of velocity vector
-  mass   ; mass of atom
-  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
-  atom-PE ; Potential energy of the atom
-  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
-  base-color  ; display color for the atom when it isn't selected
-
-  ;; the following variable is for the atom-editing-procedures.nls file
-  selected? ; whether the atom is selected or  not to change its size
+  species
 ]
-
-
-;*******************************************************
-;**************** Setup Procedures *********************
-;*******************************************************
 
 to setup
   clear-all
-  mdc.setup-constants
-  mdc.setup-cutoff-linear-functions-2sig
-  mdc.setup-atoms-nrc 5 5
-  mdc.pin-bottom-row
-  ask atoms [aep.init-atom]
-  setup-interstitial
-
-  mdc.update-force-and-velocity-and-PE-2sig
-  mdc.init-velocity
-
-  vab.setup-links
-
-  aep.setup-messages
+  set-default-shape turtles "square"
+  ;; make green atoms on left
+  ;ask patches with [pycor < (max-pycor - 4)] [
+  ask patches [
+    sprout 1 [
+      ifelse random 100 < %A [
+        set breed atoms
+        set species "A"
+        set color blue
+      ] [
+        set breed atoms
+        set species "B"
+        set color green
+      ]
+    ]
+  ]
+  ask n-of n-vacancies turtles [die]
+  ask patches with [not any? turtles-here] [
+    sprout 1 [
+      set breed vacancies
+      set color black
+    ]
+  ]
 
   reset-ticks
 end
 
-
-to setup-interstitial
-  create-atoms 1 [
-    ; setxy 0.5612310241546858  0.3240268828732776
-    setxy 0.021186034506860775 0.6295806514946801
-    set shape "circle"
-    set color red
-    set sigma 0.2
-    set mass sigma ^ 2
-    set pinned? false
-    set selected? true
-    set base-color red
-    aep.set-size
-  ]
-end
-
-
-;*******************************************************
-;**************** Go Procedures ************************
-;*******************************************************
-
 to go
-  simulate
-  interact
+  ;; asks vacancies to ask a neighboring atom to
+  ;; move into the vacancy
+  ask vacancies [move-atom-to-here]
+  tick
 end
 
+;; chooses a neighboring atom to move onto a empty patch (vacancy)
+to move-atom-to-here  ;; patch procedure
+  let the-atom one-of atoms
 
-to simulate
-  aep.update-atom-size-viz
+  let current-U [calc-U] of the-atom
 
-  ask atom-links [ die ]
+  let atoms-original-patch [patch-here] of the-atom
+  ask the-atom [ move-to myself ]  ;; myself is the calling patch
+  let new-U [calc-U] of the-atom
 
-  ; moving happens before velocity and force update in accordance with velocity verlet
-  mdc.move-atoms
+  let ΔU new-U - current-U
+  ifelse ΔU <= 0 or random-float 1 < exp(- ΔU / temperature) [
+    ; atom stays on new patch and vacancy move to old patch
+    move-to atoms-original-patch
+  ] [
+    ask the-atom [move-to atoms-original-patch]
+  ]
 
-  mdc.update-force-and-velocity-and-PE-2sig
-  vab.update-atom-color-and-links
-  mdc.scale-velocities
-  vab.color-links  ; stylizing/coloring links
-
-  tick-advance dt
-  update-plots
 end
 
-to interact
-  mdc.drag-atoms-with-mouse-2sig
+; atom procedure: calculate potential energy at current location
+to-report calc-U
+  report sum [energy-with myself] of atoms-on neighbors4
 end
 
-
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
-
-
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
-
-
-
-; Copyright 2020 Uri Wilensky.
-; See Info tab for full copyright and license.
+to-report energy-with [other-atom]
+  let other-species [species] of other-atom
+  report (ifelse-value
+    species = "A" and other-species = "A" [AA-energy]
+    species = "B" and other-species = "B" [BB-energy]
+    [AB-energy]
+  )
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-190
+285
 10
-538
-359
+608
+334
 -1
 -1
-48.6
+9.0
 1
 10
 1
@@ -127,10 +92,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--3
-3
--3
-3
+-17
+17
+-17
+17
 1
 1
 1
@@ -138,10 +103,10 @@ ticks
 30.0
 
 BUTTON
-0
-10
-80
-43
+16
+101
+101
+134
 NIL
 setup
 NIL
@@ -155,10 +120,10 @@ NIL
 1
 
 BUTTON
-85
-10
-170
-43
+106
+101
+186
+134
 NIL
 go
 T
@@ -171,264 +136,145 @@ NIL
 NIL
 0
 
+BUTTON
+191
+101
+273
+134
+go-once
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
+
 SLIDER
+17
+58
+272
+91
+%A
+%A
 0
-50
-175
-83
-temp
-temp
-0
-.2
-0.02
-.01
+100
+50.0
+1
 1
 NIL
 HORIZONTAL
 
-SWITCH
-560
-150
-832
-183
-color-atoms-by-PE?
-color-atoms-by-PE?
-0
-1
--1000
-
-SWITCH
-560
-45
-790
-78
-show-diagonal-right-links?
-show-diagonal-right-links?
-0
-1
--1000
-
-SWITCH
-560
-80
-790
-113
-show-diagonal-left-links?
-show-diagonal-left-links?
-0
-1
--1000
-
-SWITCH
-560
-115
-790
-148
-show-horizontal-links?
-show-horizontal-links?
-0
-1
--1000
-
-TEXTBOX
-560
-195
-710
-213
-NIL
-11
-0.0
-1
-
-TEXTBOX
-560
-195
-710
-235
-Color Key\nLinks:
-12
-0.0
-1
-
-TEXTBOX
-565
-230
-740
-248
-high compression: dark red
-11
-13.0
-1
-
-TEXTBOX
-565
-245
-835
-263
-low compression: light red (+ grey tone)
-11
-18.0
-1
-
-TEXTBOX
-564
-259
-714
-277
-equilibrium: grey
-11
-5.0
-1
-
-TEXTBOX
-564
-272
-834
-300
-low tension: light yellow (+ grey tone)
-11
-0.0
-1
-
-TEXTBOX
-565
-288
-725
-306
-high tension: dark yellow
-11
-44.0
-1
-
-TEXTBOX
-560
-305
-715
-323
-Atoms:
-12
-0.0
-1
-
-TEXTBOX
-565
-320
-835
-338
-low potential energy: dark blue
-11
-103.0
-1
-
-TEXTBOX
-565
-335
-850
-363
-high potential energy: light blue (-> white)
-11
-107.0
-1
-
-BUTTON
-95
-110
-180
-143
-increase-size
-aep.change-atom-size .1
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-0
-110
-85
-143
-decrease-size
-aep.change-atom-size (- .1)
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
 SLIDER
-560
-10
-737
-43
-atom-viz-size
-atom-viz-size
-0
-1.1
-0.8
+16
+144
+188
+177
+AA-energy
+AA-energy
+-1
+-.1
+-0.9
 .1
 1
-sigma
+NIL
 HORIZONTAL
 
-TEXTBOX
-5
-90
-175
-116
-For changing interstitial atom
-12
-0.0
+SLIDER
+16
+184
+188
+217
+BB-energy
+BB-energy
+-1
+-.1
+-0.8
+.1
 1
+NIL
+HORIZONTAL
 
-TEXTBOX
-295
-330
-445
-348
-Atoms with X don't move
-11
-9.9
+SLIDER
+16
+224
+188
+257
+AB-energy
+AB-energy
+-1
+-.1
+-0.6
+.1
 1
-
-PLOT
-0
-205
-185
-355
-Total PE of system
 NIL
-NIL
-0.0
-10.0
--64.0
--59.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot sum [atom-pe] of atoms"
+HORIZONTAL
 
-MONITOR
-40
-155
-155
-200
-Total PE of System
-sum [atom-pe] of atoms
+SLIDER
+16
+265
+188
+298
+temperature
+temperature
+.1
 2
+0.2
+.1
 1
-11
+NIL
+HORIZONTAL
+
+SLIDER
+18
+20
+272
+53
+n-vacancies
+n-vacancies
+1
+10
+1.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
+## WHAT IS IT?
+
+
+
+## HOW IT WORKS
+
+
+
+## HOW TO USE IT
+
+
+
+## THINGS TO NOTICE
+
+
+
+## EXTENDING THE MODEL
+
+
+
+## NETLOGO FEATURES
+
+
+## RELATED MODELS
+
+
+
+## CREDITS AND REFERENCES
+
+
+For additional information:
 @#$#@#$#@
 default
 true
@@ -497,57 +343,12 @@ false
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
 
-circle+
-false
-0
-Circle -7500403 true true 0 0 300
-Rectangle -16777216 true false 0 135 300 165
-Rectangle -16777216 true false 135 -15 165 300
-
-circle-dot
-true
-0
-Circle -7500403 true true 0 0 300
-Circle -16777216 true false 88 88 124
-
-circle-s
-false
-0
-Circle -7500403 true true 0 0 300
-Line -1 false 210 60 120 60
-Line -1 false 90 90 90 120
-Line -1 false 120 150 180 150
-Line -1 false 210 180 210 210
-Line -1 false 90 240 180 240
-Line -7500403 true 90 90 120 60
-Line -1 false 120 60 90 90
-Line -1 false 90 120 120 150
-Line -1 false 180 150 210 180
-Line -1 false 210 210 180 240
-
-circle-x
-false
-0
-Circle -7500403 true true 0 0 300
-Polygon -16777216 true false 240 30 30 240 60 270 270 60
-Polygon -16777216 true false 30 60 240 270 270 240 60 30
-
 cow
 false
 0
 Polygon -7500403 true true 200 193 197 249 179 249 177 196 166 187 140 189 93 191 78 179 72 211 49 209 48 181 37 149 25 120 25 89 45 72 103 84 179 75 198 76 252 64 272 81 293 103 285 121 255 121 242 118 224 167
 Polygon -7500403 true true 73 210 86 251 62 249 48 208
 Polygon -7500403 true true 25 114 16 195 9 204 23 213 25 200 39 123
-
-cylinder
-false
-0
-Circle -7500403 true true 0 0 300
-
-dot
-false
-0
-Circle -7500403 true true 90 90 120
 
 face happy
 false
@@ -625,11 +426,6 @@ line
 true
 0
 Line -7500403 true 150 0 150 300
-
-line half
-true
-0
-Line -7500403 true 150 0 150 150
 
 pentagon
 false
@@ -747,7 +543,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.4.0
+NetLogo 6.4.0-beta1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
@@ -764,5 +560,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-1
+0
 @#$#@#$#@

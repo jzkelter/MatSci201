@@ -1,136 +1,129 @@
-__includes [
-  "../nls-files/molecular-dynamics-core.nls"
-  "../nls-files/atom-editing-procedures.nls"
-  "../nls-files/visualize-atoms-and-bonds.nls"
-]
-
-;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
+breed [vacancies vacancy]
+
+
+globals [
+  rolling-avg-vacancies
+  total-vacancies
+  prior-temp
+]
 
 atoms-own [
-  ;; the following variables are for the molecular-dynamics-core.nls file
-  fx     ; x-component of force vector from last time step
-  fy     ; y-component of force vector from last time step
-  vx     ; x-component of velocity vector
-  vy     ; y-component of velocity vector
-  mass   ; mass of atom
-  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
-  atom-PE ; Potential energy of the atom
-  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
-  base-color  ; display color for the atom when it isn't selected
-
-  ;; the following variable is for the atom-editing-procedures.nls file
-  selected? ; whether the atom is selected or  not to change its size
+  movable?
 ]
-
-
-;*******************************************************
-;**************** Setup Procedures *********************
-;*******************************************************
 
 to setup
   clear-all
-  mdc.setup-constants
-  mdc.setup-cutoff-linear-functions-2sig
-  mdc.setup-atoms-nrc 5 5
-  mdc.pin-bottom-row
-  ask atoms [aep.init-atom]
-  setup-interstitial
+  set-default-shape turtles "square"
 
-  mdc.update-force-and-velocity-and-PE-2sig
-  mdc.init-velocity
+  ask patches with [abs pycor < (max-pycor)] [
+    sprout 1 [
+      set breed atoms
+      set color violet
+      ifelse pycor > min-pycor [
+        set movable? true
+        set color color + 1
+      ] [
+        set movable? false
+      ]
+    ]
+  ]
 
-  vab.setup-links
+  ask patches with [not any? atoms-here] [
+    sprout 1 [
+      set breed vacancies
+      hide-turtle
+    ]
+  ]
 
-  aep.setup-messages
+
+  set prior-temp temperature
+  set rolling-avg-vacancies 0
+  set total-vacancies 0
 
   reset-ticks
 end
 
+to go
+  ;; asks vacancies to ask a neighboring atom to
+  ;; move into the vacancy
+  ask vacancies [move-atom-to-here]
 
-to setup-interstitial
-  create-atoms 1 [
-    ; setxy 0.5612310241546858  0.3240268828732776
-    setxy 0.021186034506860775 0.6295806514946801
-    set shape "circle"
-    set color red
-    set sigma 0.2
-    set mass sigma ^ 2
-    set pinned? false
-    set selected? true
-    set base-color red
-    aep.set-size
+  set rolling-avg-vacancies .995 * rolling-avg-vacancies + .005 * num-vacancies
+  set total-vacancies total-vacancies + num-vacancies
+
+  if prior-temp != temperature [
+    reset-ticks
+    set prior-temp temperature
+    set total-vacancies 0
+  ]
+  tick
+end
+
+;; chooses a neighboring atom to move onto a empty patch (vacancy)
+to move-atom-to-here  ;; patch procedure
+  let the-atom nobody
+  ifelse horizontal-movement? [
+    set the-atom one-of atoms-on neighbors4
+  ] [
+    set the-atom one-of atoms in-radius 1 with [pxcor = [pxcor] of myself]
+  ]
+  if the-atom != nobody and [movable?] of the-atom [
+    let current-PE [calc-PE] of the-atom
+
+    let atoms-original-patch [patch-here] of the-atom
+    ask the-atom [ move-to myself ]  ;; myself is the calling patch
+    let new-PE [calc-PE] of the-atom
+
+    let ΔPE new-PE - current-PE
+    ifelse ΔPE <= 0 or random-float 1 < exp(- ΔPE / temperature) [
+      ; atom stays on new patch and vacancy move to old patch
+      move-to atoms-original-patch
+    ] [
+      ask the-atom [move-to atoms-original-patch]
+    ]
   ]
 end
 
-
-;*******************************************************
-;**************** Go Procedures ************************
-;*******************************************************
-
-to go
-  simulate
-  interact
+; atom procedure: calculate potential energy at current location
+to-report calc-PE
+  ; for simplicity, each neighboring atom contributes PE of -1
+  report bond-energy * count atoms-on neighbors4
 end
 
-
-to simulate
-  aep.update-atom-size-viz
-
-  ask atom-links [ die ]
-
-  ; moving happens before velocity and force update in accordance with velocity verlet
-  mdc.move-atoms
-
-  mdc.update-force-and-velocity-and-PE-2sig
-  vab.update-atom-color-and-links
-  mdc.scale-velocities
-  vab.color-links  ; stylizing/coloring links
-
-  tick-advance dt
-  update-plots
+to-report num-vacancies
+  report count vacancies with [count atoms-on neighbors4 = 4]
 end
 
-to interact
-  mdc.drag-atoms-with-mouse-2sig
+to-report avg-vacancies
+  ifelse ticks > 0 [
+    report total-vacancies / ticks
+  ] [
+    report 0
+  ]
 end
-
-
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
-
-
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
-
-
-
-; Copyright 2020 Uri Wilensky.
-; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-190
-10
-538
-359
+275
+30
+2357
+69
 -1
 -1
-48.6
+10.333333333333334
 1
 10
 1
 1
 1
 0
-0
+1
 0
 1
--3
-3
--3
-3
+0
+200
+0
+2
 1
 1
 1
@@ -138,12 +131,12 @@ ticks
 30.0
 
 BUTTON
-0
+175
 10
-80
+257
 43
-NIL
-setup
+go-once
+go
 NIL
 1
 T
@@ -152,10 +145,44 @@ NIL
 NIL
 NIL
 NIL
+0
+
+PLOT
+0
+245
+255
+395
+Vacancies vs Time
+time
+vacancies
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"instantaneous" 1.0 0 -16777216 true "" "plot num-vacancies"
+"avg" 1.0 0 -2674135 true "" "plot rolling-avg-vacancies"
+
+SLIDER
 1
+50
+257
+83
+temperature
+temperature
+.1
+1
+0.39
+.01
+1
+NIL
+HORIZONTAL
 
 BUTTON
-85
+90
 10
 170
 43
@@ -171,264 +198,144 @@ NIL
 NIL
 0
 
-SLIDER
-0
-50
-175
-83
-temp
-temp
-0
-.2
-0.02
-.01
-1
-NIL
-HORIZONTAL
-
-SWITCH
-560
-150
-832
-183
-color-atoms-by-PE?
-color-atoms-by-PE?
-0
-1
--1000
-
-SWITCH
-560
-45
-790
-78
-show-diagonal-right-links?
-show-diagonal-right-links?
-0
-1
--1000
-
-SWITCH
-560
-80
-790
-113
-show-diagonal-left-links?
-show-diagonal-left-links?
-0
-1
--1000
-
-SWITCH
-560
-115
-790
-148
-show-horizontal-links?
-show-horizontal-links?
-0
-1
--1000
-
-TEXTBOX
-560
-195
-710
-213
-NIL
-11
-0.0
-1
-
-TEXTBOX
-560
-195
-710
-235
-Color Key\nLinks:
-12
-0.0
-1
-
-TEXTBOX
-565
-230
-740
-248
-high compression: dark red
-11
-13.0
-1
-
-TEXTBOX
-565
-245
-835
-263
-low compression: light red (+ grey tone)
-11
-18.0
-1
-
-TEXTBOX
-564
-259
-714
-277
-equilibrium: grey
-11
-5.0
-1
-
-TEXTBOX
-564
-272
-834
-300
-low tension: light yellow (+ grey tone)
-11
-0.0
-1
-
-TEXTBOX
-565
-288
-725
-306
-high tension: dark yellow
-11
-44.0
-1
-
-TEXTBOX
-560
-305
-715
-323
-Atoms:
-12
-0.0
-1
-
-TEXTBOX
-565
-320
-835
-338
-low potential energy: dark blue
-11
-103.0
-1
-
-TEXTBOX
-565
-335
-850
-363
-high potential energy: light blue (-> white)
-11
-107.0
-1
-
-BUTTON
-95
-110
-180
-143
-increase-size
-aep.change-atom-size .1
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
 BUTTON
 0
-110
-85
-143
-decrease-size
-aep.change-atom-size (- .1)
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-SLIDER
-560
 10
-737
+85
 43
-atom-viz-size
-atom-viz-size
-0
-1.1
-0.8
-.1
+NIL
+setup
+NIL
 1
-sigma
-HORIZONTAL
-
-TEXTBOX
-5
-90
-175
-116
-For changing interstitial atom
-12
-0.0
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
 1
 
-TEXTBOX
-295
-330
-445
-348
-Atoms with X don't move
+MONITOR
+15
+195
+106
+240
+Avg. Vacancies
+avg-vacancies
+7
+1
 11
-9.9
+
+MONITOR
+265
+410
+392
+455
+avg. concentration
+avg-vacancies / count atoms
+7
 1
+11
 
 PLOT
 0
-205
-185
-355
-Total PE of system
-NIL
-NIL
+405
+255
+610
+Vacancy Concentration vs Time
+Ticks
+Vacancy Concentration
 0.0
 10.0
--64.0
--59.0
+0.0
+0.005
 true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot sum [atom-pe] of atoms"
+"default" 1.0 0 -16777216 true "" "plot num-vacancies / count atoms"
+"pen-1" 1.0 0 -2674135 true "" "plot rolling-avg-vacancies / count atoms"
+
+SLIDER
+0
+100
+172
+133
+bond-energy
+bond-energy
+-2
+0
+-1.0
+.1
+1
+NIL
+HORIZONTAL
 
 MONITOR
-40
-155
-155
-200
-Total PE of System
-sum [atom-pe] of atoms
-2
+115
+195
+247
+240
+expected vacancies
+count atoms * exp(3 * bond-energy / temperature)
+12
 1
 11
 
+MONITOR
+405
+410
+545
+455
+expected concentration
+exp(3 * bond-energy / temperature)
+13
+1
+11
+
+SWITCH
+265
+90
+462
+123
+horizontal-movement?
+horizontal-movement?
+0
+1
+-1000
+
 @#$#@#$#@
+## WHAT IS IT?
+
+
+
+## HOW IT WORKS
+
+
+
+## HOW TO USE IT
+
+
+
+## THINGS TO NOTICE
+
+
+
+## EXTENDING THE MODEL
+
+
+
+## NETLOGO FEATURES
+
+
+## RELATED MODELS
+
+
+
+## CREDITS AND REFERENCES
+
+
+For additional information:
 @#$#@#$#@
 default
 true
@@ -497,57 +404,12 @@ false
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
 
-circle+
-false
-0
-Circle -7500403 true true 0 0 300
-Rectangle -16777216 true false 0 135 300 165
-Rectangle -16777216 true false 135 -15 165 300
-
-circle-dot
-true
-0
-Circle -7500403 true true 0 0 300
-Circle -16777216 true false 88 88 124
-
-circle-s
-false
-0
-Circle -7500403 true true 0 0 300
-Line -1 false 210 60 120 60
-Line -1 false 90 90 90 120
-Line -1 false 120 150 180 150
-Line -1 false 210 180 210 210
-Line -1 false 90 240 180 240
-Line -7500403 true 90 90 120 60
-Line -1 false 120 60 90 90
-Line -1 false 90 120 120 150
-Line -1 false 180 150 210 180
-Line -1 false 210 210 180 240
-
-circle-x
-false
-0
-Circle -7500403 true true 0 0 300
-Polygon -16777216 true false 240 30 30 240 60 270 270 60
-Polygon -16777216 true false 30 60 240 270 270 240 60 30
-
 cow
 false
 0
 Polygon -7500403 true true 200 193 197 249 179 249 177 196 166 187 140 189 93 191 78 179 72 211 49 209 48 181 37 149 25 120 25 89 45 72 103 84 179 75 198 76 252 64 272 81 293 103 285 121 255 121 242 118 224 167
 Polygon -7500403 true true 73 210 86 251 62 249 48 208
 Polygon -7500403 true true 25 114 16 195 9 204 23 213 25 200 39 123
-
-cylinder
-false
-0
-Circle -7500403 true true 0 0 300
-
-dot
-false
-0
-Circle -7500403 true true 90 90 120
 
 face happy
 false
@@ -625,11 +487,6 @@ line
 true
 0
 Line -7500403 true 150 0 150 300
-
-line half
-true
-0
-Line -7500403 true 150 0 150 150
 
 pentagon
 false
@@ -751,6 +608,15 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="experiment" repetitions="1" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="100000"/>
+    <metric>total-vacancies / ticks</metric>
+    <steppedValueSet variable="temperature" first="0.1" step="0.1" last="1"/>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default

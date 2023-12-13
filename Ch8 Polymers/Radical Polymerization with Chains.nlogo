@@ -1,7 +1,7 @@
-breed [unsaturated-mers unsaturated-mer] ;; monomers start out as unsaturated mers, and in a polymer they turn into saturated mers
+breed [unsaturated-mers unsaturated-mer] ;; unsaturated-mers don't have full bonds. These are usually monomers.
 breed [radical-mers radical-mer] ;; the mer at the end of a propagating chain has a free radical, and is therefore a radical mer
-breed [saturated-mers saturated-mer]
-breed [radical-initiators radical-initiator] ;; initiators in the model start out as radical initiators
+breed [saturated-mers saturated-mer]  ;; any mer in a polymer that is not at the end has its bonds saturated
+breed [radical-initiators radical-initiator]  ;; initiators in the model start out as radical initiators
 breed [initiators initiator] ;; once they bond, the initiators lose their free radical, turning into just an initiator
 
 turtles-own [
@@ -21,7 +21,6 @@ globals [
 
 to setup
   clear-all
-  set current-chain-id 1 ;; start chain-ids at 1
   setup-default-shapes
   setup-agents
   reset-ticks
@@ -45,6 +44,7 @@ to setup-agents
     move-to one-of patches with [not any? turtles-here]
   ]
 
+  set current-chain-id 1 ;; start chain-ids at 1
   create-turtles num-radical-initiators [
     change-to-radical-initiator
     move-to one-of patches with [not any? turtles-here]
@@ -56,28 +56,28 @@ end
 
 to change-to-unsaturated-mer
   set breed unsaturated-mers
-  set color [100 143 255]
+  set color sky + 2
 end
 
 to change-to-radical-mer
   set breed radical-mers
-  set color [220 38 127]
+  set color magenta
 end
 
 to change-to-saturated-mer
   set breed saturated-mers
-  set color [120 94 240]
+  set color sky - 1
 end
 
 to change-to-radical-initiator
   set breed radical-initiators
-  set color [254 97 0]
+  set color orange + 2
 end
 
 to change-to-initiator
   set breed initiators
-  set color [255 176 0]
-  ;; moleular weight is tracked using initiators because each polymer will have at least one initiator
+  set color orange - 2
+  ;; molecular weight is tracked using initiators because each polymer will have at least one initiator
   set track-mw? true
 end
 
@@ -97,7 +97,7 @@ end
 
 to interact
   ;; neighbors4 here because when a diagonal link is created, if there is a link between the two adjacent turtles, the links can get crossed
-  let bondable-neighbors (turtles-on neighbors4) with [(breed = unsaturated-mers and count link-neighbors = 0) or breed = radical-mers or breed = radical-initiators]
+  let bondable-neighbors (turtles-on neighbors4) with [bondable?]
   if any? bondable-neighbors [
     ;; determines the bond, and breed changes for both the initiating agent and the neighbor agent
     ;; changes the neighbor agent's breed first to make the ifelse logic clear
@@ -107,58 +107,51 @@ to interact
 end
 
 to bond-and-change-breed
-  ;; called by the neighbor agent
+  ;; called by the neighbor of the agent initiating bonding who is "myself" in this context
   (ifelse
-    ;; radical agent interacting with a radical-initiator
-    breed = radical-initiators [
-      create-link-with myself
-      ;; when agents with different chain-ids combine, the turtles with the chain-id of the neighbor agent change their chain-id to the initiating agent's, to have the chain-id uniform throughout the polymer
-      set chain-id [chain-id] of myself
-      change-to-initiator
-      ;; since this initiator is the 2nd of the polymer, it does not track molecular weight to avoid double counting
-      set track-mw? false
-    ]
-    breed = radical-mers [
-      if [breed] of myself = radical-initiators [
-        ;; radical-initiator interacting with a radical-mer
-        create-link-with myself
-        let id1 [chain-id] of myself
-        let id2 chain-id
-        ;; since the initiator at the end of the radical mer is the 2nd of the polymer, it does not track molecular weight to avoid double counting
-        ask initiators with [chain-id = id2] [set track-mw? false]
-        ask turtles with [chain-id = id2] [set chain-id id1]
-        change-to-saturated-mer
-      ]
-      if [breed] of myself = radical-mers [
-        ;; radical-mer interacting with another radical-mer, combination or disproportionation termination occurs depending on the set probability
-        ifelse random-float 1 <= disproportionation-prob [
-          ;; disproportionation termination, the only interaction where a bond is not formed
-          ;; the initiating mer takes a hydrogen to become a saturated mer
-          ;; the neighbor mer gives a hydrogen to become an unsaturated mer
-          ;; this order does not matter because the turtles are called to interact in a random order
-          change-to-unsaturated-mer
-        ] [
-          ;; combination termination, the propagating chains combine to form one polymer
-          create-link-with myself
-          let id1 [chain-id] of myself
-          let id2 chain-id
-          ask initiators with [chain-id = id2] [set track-mw? false]
-          ask turtles with [chain-id = id2] [set chain-id id1]
-          change-to-saturated-mer
-        ]
-      ]
-    ]
-    breed = unsaturated-mers and count link-neighbors = 0 [
-      ;; radical agent interacting with a monomer
+    monomer? [ ;; radical agent interacting with a monomer
       create-link-with myself
       set chain-id [chain-id] of myself
       change-to-radical-mer
     ]
+    breed = radical-initiators [ ;; radical agent interacting with a radical-initiator
+      create-link-with myself
+      set chain-id [chain-id] of myself  ;; when agents with different chain-ids combine, the turtles with the chain-id of the neighbor agent change their chain-id to the initiating agent's, to have the chain-id uniform throughout the polymer
+      change-to-initiator
+      set track-mw? false  ;; since this initiator is the 2nd of the polymer, it does not track molecular weight to avoid double counting
+    ]
+    breed = radical-mers [ ;; radical agent interacting with a radical-mer. In this case the reaction depends on the type of radical.
+      (ifelse
+        [breed] of myself = radical-initiators [combine-chains]  ;; radical-initiator interacting with a radical-mer -> combine chains
+        [breed] of myself = radical-mers [  ;; two radical-mers interacting -> either disproportionate or combine chains
+          ;; radical-mer interacting with another radical-mer -> combination or disproportionation termination occurs depending on disproportionation-prob
+          ifelse random-float 1 <= disproportionation-prob [
+            ;; disproportionation termination is the only interaction where a bond is not formed
+            ;; the initiating mer takes a hydrogen to become a saturated mer (which will happen change-breed-myself)
+            ;; the neighbor mer gives up a hydrogen to become an unsaturated mer and reaches stability through a double bond
+            change-to-unsaturated-mer
+          ] [
+            ;; combination termination, the propagating chains combine to form one polymer
+            combine-chains
+          ]
+        ]
+      )
+    ]
   )
 end
 
+to combine-chains
+  ;; radical-mer procedure to combine chain with another chain that bonds with it
+  create-link-with myself
+  let id1 [chain-id] of myself
+  let id2 chain-id
+  ask initiators with [chain-id = id2] [set track-mw? false]  ;; since the initiator at the end of the radical mer is the 2nd of the polymer, it does not track molecular weight to avoid double counting
+  ask turtles with [chain-id = id2] [set chain-id id1]
+  change-to-saturated-mer
+end
+
 to change-breed-myself
-  ;; called by the initiating agent
+  ;; called by the agent initiating bonding
   (ifelse
     ;; the initiating agent is always a radical that turns into a non radical
     breed = radical-initiators [change-to-initiator]
@@ -166,6 +159,17 @@ to change-breed-myself
   )
 end
 
+to-report bondable?
+  report (
+    breed = radical-mers  or
+    breed = radical-initiators or
+    monomer?
+  )
+end
+
+to-report monomer?
+  report breed = unsaturated-mers and count link-neighbors = 0
+end
 
 to move
   ;; turtle procedure
@@ -207,7 +211,7 @@ end
 
 
 to add-monomers
-  ;; for additional monomers
+  ;; for additional unsaturated-mers
   create-turtles num-add [
     change-to-unsaturated-mer
     move-to one-of patches with [not any? turtles-here]
@@ -417,63 +421,63 @@ PENS
 "weight avg mw" 1.0 0 -13345367 true "" "plot-pen-reset\nplotxy wgt-avg-molecular-weight plot-y-min\nplotxy wgt-avg-molecular-weight plot-y-max"
 
 TEXTBOX
-40
-383
-190
-503
-Shape & Color Key\nmers: circle\n\n\n\n\ninitiators: square
+20
+390
+170
+416
+Shape & Color Key\n\n
 12
 0.0
 1
 
 TEXTBOX
-48
-417
-198
-435
-unsaturated mers: sky blue
+45
+415
+195
+433
+monomers: sky blue
 11
-106.0
+97.0
 1
 
 TEXTBOX
-49
-437
-199
-455
+46
+435
+196
+453
 radical mers: magenta
 11
-126.0
+125.0
 1
 
 TEXTBOX
-49
+45
 455
-199
+195
 473
-saturated mers: purple
+saturated mers: teal
 11
-115.0
+94.0
 1
 
 TEXTBOX
-49
-494
-199
-512
-radical initiators: orange
+45
+475
+210
+501
+radical initiators: light orange
 11
-24.0
+27.0
 1
 
 TEXTBOX
-50
-514
-200
-532
-initiators: yellow
+45
+495
+195
+513
+initiators: dark orange
 11
-36.0
+23.0
 1
 
 MONITOR
@@ -514,44 +518,92 @@ PLOT
 337
 1025
 527
-Number of Monomers
-NIL
-NIL
+Monomer Concentration
+ticks
+# / volume
 0.0
 10.0
 0.0
-10.0
+0.1
 true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot count unsaturated-mers with [count link-neighbors = 0]"
+"default" 1.0 0 -16777216 true "" "plot (count unsaturated-mers with [monomer?]) / (world-width * world-height)"
+
+TEXTBOX
+20
+465
+35
+488
+■
+25
+27.0
+1
+
+TEXTBOX
+20
+485
+35
+516
+■
+25
+23.0
+1
+
+TEXTBOX
+20
+445
+35
+476
+●
+25
+94.0
+1
+
+TEXTBOX
+20
+425
+35
+456
+●
+25
+125.0
+1
+
+TEXTBOX
+20
+405
+35
+436
+●
+25
+97.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
-
-;; Things to maybe have in this section:
-
-;; - This model has the radical-initiator turn into an initiator and the opposite end being the propogating end.
-;; - Disproportionation leaves both ends uncreactive to radicals.
-
+This is a model of free-radical polymerization which is a method of polymer formation. A polymer is a long molecule made up of many repeating units known as "mers". A monomer is a single one of these unbonded units by itself. When multiple monomers bond together, they create a polymer (many mers). Radical polymerization is initiated by free radicals, which are molecules with an unpaired valence electron, making them very reactive. These free radicals themselves have to be created by some sort of reaction that cleaves initiator molecules into two parts, at least one of which is a free radical. The free radical then bonds with a monomer and its unpaired valence electron is transferred to the mer which is then able to repeat this process with another monomer. This process continues until either a termination reaction occurs or there are no other mers present. 
 
 
 ## HOW IT WORKS
 
-The radical polymerization is modeled using a cellular automaton approach involving only local interactions, with any global interactions used only for monitoring purposes.
+The radical polymerization is modeled involving only local interactions on a lattice. Any global interactions are used only for monitoring purposes.
 
-Radical agents are the only agents that initiate interaction with other agents. During the go code, radicals are asked to interact, then all turtles are called to move.
+Radical agents (radical mers or radical initators) are the only agents that initiate interaction with other agents. During the `go` procedure, radicals are asked to interact, then all turtles are asked to move.
 
-During interact, the radical agent randomly chooses, if available, one monomer, radical-mer, or radical-initiator from its adjacent neighbors. It then asks this agent to bond and change its breed, then finally the initiating agent changes its own breed.
+During `interact`, the radical agent randomly chooses, if available, one monomer, radical-mer, or radical-initiator from its adjacent neighbors. It then asks this agent to bond and change its breed to reflect its new status. Then, the initiating agent changes its own breed to longer be radical.
 
-When the neighbor is asked to bond and change its breed, if the neighbor is a radical initiator, it bonds with the initiating agent and changes to an initiator. If the neighbor is a monomer, it bonds with the initiating agent and changes to a radical-mer.
+When the neighbor is asked to bond and change its breed, there are number of possibilities based on its breed: 
 
-If the neighbor is a radical-mer, there are a few different cases. If the initiating agent is a radical-initiator, the neighbor bonds with the initiating agent and changes to a saturated-mer. If the initiating agent is a radical-mer, the outcome depends on DISPROPORTIONATION-PROB.
-
-If disproportionation occurs, the neighbor does not bond (only case where the neighbor does not bond) and changes to a unsaturated-mer (only case where an unsaturated-mer is not a monomer). If disproportionation does not occur and combination occurs, the neighbor bonds wtih the initiating agent and changes to a saturated-mer.
+- if it is a monomer, it bonds with the initiating agent and changes to a radical-mer.
+- if it is a radical initiator, it bonds with the initiating agent and changes to an initiator
+- if is a radical-mer, there are a three different possibilities:
+    - if the initiating agent is a radical-initiator, it bonds with the initiating agent and changes to a saturated-mer
+    - if the initiating agent is a radical-mer, the outcome depends on DISPROPORTIONATION-PROB:
+        - if disproportionation occurs, the neighbor does not bond (only case where the neighbor does not bond) and changes to a unsaturated-mer (only case where an unsaturated-mer is not a monomer). 
+        - if disproportionation does not occur, then combination occurs. The neighbor bonds wtih the initiating agent and changes to a saturated-mer.
 
 When the initiating agent changes its own breed, if it is a radical-initiator, it changes to an initiator, and if it is a radical-mer, it changes to a saturated-mer.
 
@@ -582,6 +634,8 @@ Many different patterns can be noticed in different aspects of the model based o
 (seen through the shape of the curve in the number of monomers plot)
 
 It is also important to note that along with the ratio between monomers and radical initiators, the concentration of agents within the world must also be considered. Even with the same ratio of each agent, different patterns can be observed based on how packed the agents are in the world.
+
+Also notice what types of agents are at the two ends of polymers and how this can change when DISPROPORTIONATION-PROB is high. 
 
 ## THINGS TO TRY
 
@@ -615,8 +669,7 @@ Changes to the main ideas of the model:
 
 * Change the initiation reaction so that the propagation starts on the side where the radical initiator comes in, resulting in the chain to be able to propagate on both sides
 
-* Make a hexagonal grid instead of the current square grid to be more accurate to packing (difficult)
-(If you are attempting this, look at the grain growth model in the models library to see how to create a hexagonal lattice)
+* Make a hexagonal grid instead of the current square grid to be more accurate to packing (see the MaterialSim Grain Growth model in the Models Library for a way to make a hexagonal lattice)
 
 
 ## NETLOGO FEATURES
@@ -624,6 +677,8 @@ Changes to the main ideas of the model:
 Radical mers and radical initiators are the only agents that initiate in the interact code, so those two breeds are called. In order to avoid checking the breeds every time the interact code is called, a turtle-set made of radical-mers and radical-initiators was uitilized and called instead.
 
 Auto scaling does not affect a histogram's horizontal range, so when using a histogram for the molecular weight distribution plot, an update command was implemented that adjusts the x-range periodically. This, however,  was in conflict with the "set-histogram-num-bars" pen setup command that determined the number of bars, because this would not automatically update when the x-range changed. To account for this, a pen update command was added that ran "set-histogram-num-bars" in the same period as when the x-range updated.
+
+The Shape and Color Key uses unicode characters for circles and squares to display those shapes as text. 
 
 
 ## RELATED MODELS
@@ -633,7 +688,7 @@ Radical Polymerization
 
 ## CREDITS AND REFERENCES
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+<!-- 2023 Cite: Huang, J., Kelter, J. -->
 @#$#@#$#@
 default
 true
@@ -940,7 +995,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.3.0
+NetLogo 6.4.0-beta1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
@@ -957,5 +1012,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@

@@ -23,6 +23,11 @@ atoms-own [
   selected? ; whether the atom is selected or  not to change its size
 ]
 
+globals [
+  temp
+  rolling-avg-KE
+  rolling-avg-pe
+]
 
 ;*******************************************************
 ;**************** Setup Procedures *********************
@@ -30,49 +35,48 @@ atoms-own [
 
 to setup
   clear-all
+  set temp 0.2
   mdc.setup-constants
   mdc.setup-cutoff-linear-functions-2sig
+
   mdc.setup-atoms-nrc 5 5
   mdc.pin-bottom-row
   ask atoms [aep.init-atom]
-  setup-interstitial
 
+  ; just initializing these for graphs
   mdc.update-force-and-velocity-and-PE-2sig
   mdc.init-velocity
+  set rolling-avg-pe PE-per-atom
+  set rolling-avg-KE current-KE
+
 
   vab.setup-links
 
   aep.setup-messages
 
+
   reset-ticks
 end
 
 
-to setup-interstitial
-  create-atoms 1 [
-    ; setxy 0.5612310241546858  0.3240268828732776
-    setxy 0.021186034506860775 0.6295806514946801
-    set shape "circle"
-    set color red
-    set sigma 0.2
-    set mass sigma ^ 2
-    set pinned? false
-    set selected? true
-    set base-color red
-    aep.set-size
-  ]
-end
-
-
 ;*******************************************************
-;**************** Go Procedures ************************
+;**************** Go Procedures *********************
 ;*******************************************************
 
 to go
   simulate
   interact
+  set rolling-avg-KE 0.99 * rolling-avg-KE + 0.01 * current-KE
+  set rolling-avg-pe 0.99 * rolling-avg-pe + 0.01 * PE-per-atom
 end
 
+to-report current-KE
+  report mean [0.5 * mass * (vx ^ 2 + vy ^ 2)] of atoms
+end
+
+to-report PE-per-atom
+  report mean [atom-pe] of atoms
+end
 
 to simulate
   aep.update-atom-size-viz
@@ -84,7 +88,9 @@ to simulate
 
   mdc.update-force-and-velocity-and-PE-2sig
   vab.update-atom-color-and-links
-  mdc.scale-velocities
+
+  ; mdc.scale-velocities
+
   vab.color-links  ; stylizing/coloring links
 
   tick-advance dt
@@ -92,28 +98,20 @@ to simulate
 end
 
 to interact
-  mdc.drag-atoms-with-mouse-2sig
+  (ifelse
+    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-2sig]
+    click-mode = "delete-atoms" [aep.delete-atoms]
+    )
 end
 
 
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
 
-
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
-
-
-
-; Copyright 2020 Uri Wilensky.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-190
+230
 10
-538
+675
 359
 -1
 -1
@@ -124,11 +122,11 @@ GRAPHICS-WINDOW
 1
 1
 0
-0
-0
 1
--3
-3
+1
+1
+-4
+4
 -3
 3
 1
@@ -140,8 +138,8 @@ ticks
 BUTTON
 0
 10
-80
-43
+55
+55
 NIL
 setup
 NIL
@@ -155,10 +153,10 @@ NIL
 1
 
 BUTTON
-85
+60
 10
-170
-43
+115
+55
 NIL
 go
 T
@@ -171,25 +169,10 @@ NIL
 NIL
 0
 
-SLIDER
-0
-50
-175
-83
-temp
-temp
-0
-.2
-0.02
-.01
-1
-NIL
-HORIZONTAL
-
 SWITCH
-560
+680
 150
-832
+880
 183
 color-atoms-by-PE?
 color-atoms-by-PE?
@@ -198,9 +181,9 @@ color-atoms-by-PE?
 -1000
 
 SWITCH
-560
+680
 45
-790
+880
 78
 show-diagonal-right-links?
 show-diagonal-right-links?
@@ -209,9 +192,9 @@ show-diagonal-right-links?
 -1000
 
 SWITCH
-560
+680
 80
-790
+880
 113
 show-diagonal-left-links?
 show-diagonal-left-links?
@@ -220,9 +203,9 @@ show-diagonal-left-links?
 -1000
 
 SWITCH
-560
+680
 115
-790
+880
 148
 show-horizontal-links?
 show-horizontal-links?
@@ -231,9 +214,9 @@ show-horizontal-links?
 -1000
 
 TEXTBOX
-560
+680
 195
-710
+830
 213
 NIL
 11
@@ -241,9 +224,9 @@ NIL
 1
 
 TEXTBOX
-560
+680
 195
-710
+830
 235
 Color Key\nLinks:
 12
@@ -251,9 +234,9 @@ Color Key\nLinks:
 1
 
 TEXTBOX
-565
+685
 230
-740
+860
 248
 high compression: dark red
 11
@@ -261,9 +244,9 @@ high compression: dark red
 1
 
 TEXTBOX
-565
+685
 245
-835
+955
 263
 low compression: light red (+ grey tone)
 11
@@ -271,9 +254,9 @@ low compression: light red (+ grey tone)
 1
 
 TEXTBOX
-564
+684
 259
-714
+834
 277
 equilibrium: grey
 11
@@ -281,9 +264,9 @@ equilibrium: grey
 1
 
 TEXTBOX
-564
+684
 272
-834
+954
 300
 low tension: light yellow (+ grey tone)
 11
@@ -291,9 +274,9 @@ low tension: light yellow (+ grey tone)
 1
 
 TEXTBOX
-565
+685
 288
-725
+845
 306
 high tension: dark yellow
 11
@@ -301,9 +284,9 @@ high tension: dark yellow
 1
 
 TEXTBOX
-560
+680
 305
-715
+835
 323
 Atoms:
 12
@@ -311,9 +294,9 @@ Atoms:
 1
 
 TEXTBOX
-565
+685
 320
-835
+955
 338
 low potential energy: dark blue
 11
@@ -321,53 +304,19 @@ low potential energy: dark blue
 1
 
 TEXTBOX
-565
+685
 335
-850
+970
 363
 high potential energy: light blue (-> white)
 11
 107.0
 1
 
-BUTTON
-95
-110
-180
-143
-increase-size
-aep.change-atom-size .1
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-0
-110
-85
-143
-decrease-size
-aep.change-atom-size (- .1)
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
 SLIDER
-560
+680
 10
-737
+880
 43
 atom-viz-size
 atom-viz-size
@@ -379,21 +328,21 @@ atom-viz-size
 sigma
 HORIZONTAL
 
-TEXTBOX
-5
-90
-175
-116
-For changing interstitial atom
-12
-0.0
+CHOOSER
+120
+10
+225
+55
+click-mode
+click-mode
+"drag-atoms" "delete-atoms"
 1
 
 TEXTBOX
-295
-330
-445
-348
+405
+305
+555
+323
 Atoms with X don't move
 11
 9.9
@@ -401,32 +350,41 @@ Atoms with X don't move
 
 PLOT
 0
-205
-185
-355
-Total PE of system
+65
+225
+200
+KE / atom
 NIL
 NIL
 0.0
 10.0
--64.0
--59.0
+0.0
+0.3
 true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot sum [atom-pe] of atoms"
+"default" 1.0 0 -7500403 true "" "plot current-KE"
+"rollin avg." 1.0 0 -2674135 true "" "plot rolling-avg-KE"
 
-MONITOR
-40
-155
-155
-200
-Total PE of System
-sum [atom-pe] of atoms
-2
-1
-11
+PLOT
+0
+205
+225
+355
+PE / atom
+NIL
+NIL
+0.0
+10.0
+-2.5
+-2.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -7500403 true "" "plot PE-per-atom"
+"rolling avg" 1.0 0 -13345367 true "" "plot rolling-avg-pe"
 
 @#$#@#$#@
 @#$#@#$#@

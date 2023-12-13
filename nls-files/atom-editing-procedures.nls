@@ -112,9 +112,15 @@ end
 
 to aep.change-atom-size [change]
   ask atoms with [selected?] [
-    set sigma max list 0.2 (sigma + change)
-    set mass sigma ; mass is proportional to radius
-    ;set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
+    set sigma precision (sigma + change) 2
+    (ifelse ; limit how small/big it can get
+      sigma < 0.2 [set sigma 0.2]
+      sigma > 3 [set sigma 3]
+    )
+    ; mass is proportional to radius (it maybe should be sigma ^ 2 to be proportional to area, 
+    ;     but atoms don't actually behave that way. Heavier atoms in the same period actually have
+    ;     a smaller radius)
+    set mass sigma 
     aep.set-size
   ]
 end

@@ -1,4 +1,8 @@
-__includes [ "../nls-files/molecular-dynamics-core.nls" "../nls-files/atom-editing-procedures.nls" "../nls-files/visualize-atoms-and-bonds.nls" ]
+__includes [
+  "../nls-files/molecular-dynamics-core.nls"
+  "../nls-files/atom-editing-procedures.nls"
+  "../nls-files/visualize-atoms-and-bonds.nls"
+]
 
 ;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
@@ -81,19 +85,7 @@ to interact
 end
 
 
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
 
-
-
-
-;; *****************************************************
-;; ********* Atom and Link Display procedures **********
-;; *****************************************************
-
-
-; Copyright 2020 Uri Wilensky.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -177,8 +169,8 @@ SWITCH
 150
 832
 183
-color-atoms-by-potential-energy?
-color-atoms-by-potential-energy?
+color-atoms-by-PE?
+color-atoms-by-PE?
 0
 1
 -1000
@@ -374,7 +366,7 @@ new-atom-sigma
 new-atom-sigma
 .2
 1.3
-1.0
+0.2
 .1
 1
 NIL
@@ -779,7 +771,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.3.0
+NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@

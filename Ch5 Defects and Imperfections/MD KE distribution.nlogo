@@ -1,191 +1,146 @@
+__includes [ "../nls-files/molecular-dynamics-core.nls" ]
+
+;; the following breed is for the molecular-dynamics-core.nls file
+breed [atoms atom]
+breed [trackers tracker] ; a breed to track number of atoms with a given KE
+
+atoms-own [
+  ;; the following variables are for the molecular-dynamics-core.nls file
+  fx     ; x-component of force vector from last time step
+  fy     ; y-component of force vector from last time step
+  vx     ; x-component of velocity vector
+  vy     ; y-component of velocity vector
+  mass   ; mass of atom
+  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
+  atom-PE ; Potential energy of the atom
+  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
+  base-color  ; display color for the atom when it isn't selected
+]
+
+trackers-own [
+  KE-bucket
+  N
+]
+
 globals [
-  blues      ;; agentset of all blue turtles
-  oranges    ;; agentset of all orange turtles
-  greens
+  temp
+  bucket-width  ; width of bucket for keeping track of KE distribution
+  blue-cutoff
+  green-cutoff
 ]
 
-turtles-own [
-  chain-id ;; turtle id
-]
 
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Setup Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;
 
 to setup
   clear-all
+  set temp initial-temp
+  set bucket-width 0.1
+  set blue-cutoff 1.5
+  set green-cutoff 3
   set-default-shape turtles "circle"
-  let currentChainID 1
-  ;; Create multiple chains with random positions
-  repeat numChains [
-    let spawnX random-pxcor ; {{{this needs to get fixed so that chains can't spawn on top of each other}}}
-    let spawnY random-pycor ; {{{I replaced what you had with random-pycor}}}
+  mdc.setup-constants
 
+  setup-trackers
 
-    ;; Create chain of turtles with alternating colors
-    let currentTurtle nobody ;; Initialize currentTurtle variable
-    repeat turtlesPerChain [
-      let newTurtle nobody
-      create-turtles 1 [
-        set newTurtle self
-        set color blue
-        set chain-id currentChainID
-        set heading 0 ;; Set the heading to make turtles form a chain vertically, possible use one-of[]
-        ifelse currentTurtle != nobody [
-        move-to currentTurtle
-        face currentTurtle ;; Face towards the previous turtle in the chain
-        fd 1 ;; Move forward one step
-      ][
-          setxy spawnX spawnY
-        ]
+  if initial-config = "Solid" [mdc.setup-atoms-natoms num-atoms]
+  if initial-config = "Random" [mdc.setup-atoms-random num-atoms]
 
-      ]
-      set currentTurtle newTurtle ;; Update currentTurtle variable
-    ]
-    set currentChainID (currentChainID + 1) ;; Changes chain ID
-  ]
+  ask one-of atoms [ mdc.setup-cutoff-linear-functions-1sig ]
+  mdc.init-velocity
 
-  ask turtles [  ; {{{NEW LINE}}}
-    create-links-with other turtles with [chain-id = [chain-id] of myself] in-radius 1
-  ]
-
-  set blues turtles with [color = blue]
+  reset-timer
   reset-ticks
 end
 
 
-to linear
-  ask turtles [
-    set color blue
+
+to setup-trackers
+  create-trackers (14 * (1 / bucket-width)) [
+   set KE-bucket who * bucket-width
+   set N 0
+   hide-turtle
   ]
 end
-
-
-
-to branched
-  let branched-turtles round (0.05 * count turtles)
-  ask n-of branched-turtles turtles [
-    set color green
-    set heading heading + one-of [90 270]
-    let numRepetitions random maxBranchLength ;; Generate a random number of repetitions
-    let stepCount 1
-    repeat numRepetitions [
-      let destination patch-ahead stepCount
-      if not any? turtles-on destination [
-        hatch 1 [
-          set color blue
-          set chain-id [chain-id] of myself
-          move-to destination
-          create-links-with [turtles-here] of patch-ahead -1 ; {{{NEW LINE}}}
-          set stepCount stepCount + 1
-        ]
-      ]
-    ]
-  ]
-end
-
-
-to crossLinked
-  let crossLinkedTurtles round (0.05 * count turtles)
-  ask n-of crossLinkedTurtles turtles [
-    set color orange
-    set heading heading + one-of [90 270]
-    let numRepetitions random maxBranchLength ;; Generate a random number of repetitions
-    let stepCount 1
-    repeat numRepetitions [
-      hatch 1 [
-        set color blue
-        set chain-id [chain-id] of myself
-        fd stepCount
-        create-links-with [turtles-here] of patch-ahead -1  ; {{{NEW LINE}}}
-        set stepCount stepCount + 1
-      ]
-    ]
-    set blues turtles with [color = blue]
-  ]
-end
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; Runtime Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
 
 to go
-  ask turtles [
-    move
+
+  simulate
+
+  ask atoms [
+    track-KE
+    color-by-KE
   ]
-  tick
 end
 
 
+to simulate
+  ask links [hide-link]
+  mdc.move-atoms
+  mdc.update-force-and-velocity-and-PE-1sig
 
-to move  ;; turtle procedure
-  ;; choose a heading, and before moving the monomer,
-  ;; checks if the move would break or cross the chain
-  face one-of neighbors4
-  if not breaking-chain? and not crossing-chain?
-    [ fd 1 ]
+
+  tick-advance dt
+  update-plots
 end
 
 
-to-report breaking-chain?
-  ; if my link-neighbors are not all on the neighbors of the patch-ahead, it would break the chain
-  let neighbors-of-patch-ahead [neighbors] of patch-ahead 1
-  report any? link-neighbors with [not member? patch-here neighbors-of-patch-ahead]
+to-report KE
+  report 0.5 * mass * (vx ^ 2 + vy ^ 2)
 end
 
-to-report crossing-chain?
-  report [any? turtles-here] of patch-ahead 1
+to track-KE
+  let bucket floor (1 + KE * (1 / bucket-width))
+  ask tracker bucket [set N N + (1 * dt)] ; only count it as a dt fraction of time in that bucket
 end
 
-;to-report breaking-chain?  ;; turtle procedure
-;  ;; checks if moving the turtle would break the chain
-;
-;  report (heading = 0 and any? turtles with [ chain-id = [chain-id] of myself ] at-points [[-1 -1] [0 -1] [1 -1]])
-;           or
-;         (heading = 90 and any? turtles with [ chain-id = [chain-id] of myself ] at-points [[-1 -1] [-1 0] [-1 1]])
-;           or
-;         (heading = 180 and any? turtles with [ chain-id = [chain-id] of myself ] at-points [[-1 1] [0 1] [1 1]])
-;           or
-;         (heading = 270 and any? turtles with [ chain-id = [chain-id] of myself ] at-points [[1 -1] [1 0] [1 1]])
-;end
-;
-;to-report crossing-chain?  ;; turtle procedure
-;  ;; checks if moving the turtle would cross any chain
-;
-;  report (heading = 0 and any? turtles at-points [[-1 2] [0 2] [1 2]])
-;           or
-;         (heading = 90 and any? turtles at-points [[2 -1] [2 0] [2 1]])
-;           or
-;         (heading = 180 and any? turtles at-points [[-1 -2] [0 -2] [1 -2]])
-;           or
-;         (heading = 270 and any? turtles at-points [[-2 -1] [-2 0] [-2 1]])
-;end
+to color-by-KE
+  (ifelse
+    KE < blue-cutoff [set color blue]
+    KE < green-cutoff [set color green]
+    [set color red] ;; else
+  )
+
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-121
+180
 10
-449
-339
+514
+345
 -1
 -1
-4.0
+29.69
 1
+18
+1
+1
+1
+0
+1
+1
+1
+-5
 5
-1
-1
-1
+-5
+5
 0
-1
-1
-1
 0
-79
-0
-79
-1
-1
 1
 ticks
 30.0
 
 BUTTON
-20
-35
-95
-68
+105
+55
+170
+90
 NIL
 setup
 NIL
@@ -199,10 +154,10 @@ NIL
 1
 
 BUTTON
-20
-125
-95
-158
+105
+105
+172
+138
 NIL
 go
 T
@@ -215,181 +170,125 @@ NIL
 NIL
 0
 
-BUTTON
-20
-80
+SLIDER
+0
+10
+172
+43
+num-atoms
+num-atoms
+0
+30
+30.0
+1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+0
+50
 95
-113
-go once
-go
-NIL
+95
+initial-config
+initial-config
+"Solid" "Random"
 1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
 
 SLIDER
-130
-358
-302
-391
-numChains
-numChains
 0
-100
-14.0
-1
+155
+172
+188
+initial-temp
+initial-temp
+0
+8
+8.0
+.1
 1
 NIL
 HORIZONTAL
 
-SLIDER
-126
-415
-298
-448
-turtlesPerChain
-turtlesPerChain
+MONITOR
 0
-100
-31.0
+235
+55
+280
+temp
+mdc.current-temp
+3
 1
-1
-NIL
-HORIZONTAL
+11
 
-BUTTON
-470
-26
-540
-59
-NIL
-linear
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
+TEXTBOX
+60
+235
+170
+275
+This will match the temp slider if contant-temp? is on
+11
+0.0
 1
 
-BUTTON
-469
-84
-559
-117
-NIL
-branched
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-469
-190
-579
-223
-NIL
-crossLinked
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-SLIDER
-468
-129
-640
-162
-maxBranchLength
-maxBranchLength
-0
-100
-14.0
-1
-1
-NIL
-HORIZONTAL
+PLOT
+525
+10
+795
+350
+KE distribution
+KE
+Avg. Num Atoms 
+0.0
+7.0
+0.0
+4.0
+false
+false
+"" "if ticks > 0 [\nclear-plot\nset-plot-y-range 0 ceiling (0.1 + max [N / (ticks + 1)] of trackers)\n]"
+PENS
+"average" 0.1 1 -13345367 true "" "foreach sort trackers with [KE-bucket < blue-cutoff] [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
+"pen-1" 0.1 1 -10899396 true "" "foreach sort trackers with [KE-bucket <= green-cutoff and KE-bucket > blue-cutoff] [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
+"pen-2" 0.1 1 -2674135 true "" "foreach sort trackers with [KE-bucket > green-cutoff] [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-This model simulates the motion of a simple polymer.  Polymers are simply long chains of identical, smaller molecules called monomers, which often have some mobility, causing many polymers to be flexible.  Many common materials and chemical substances are polymers, for example plastics and proteins.
+This is a molecular dynamics (MD) model using the Lennard-Jones potential function. This function models the fact that atoms attract each other when they are a small distance apart and repel each other when they are very close together. By modeling many atoms behaving according to the Lennard-Jones potential, we can see how the bulk behavior of matter at different temperatures emerges from the interactions between discrete atoms. The details of the Lennard-Jones function are discussed in the next section.
+
 
 ## HOW IT WORKS
 
-The polymer is modeled using a cellular automaton approach involving only local interactions.
+MD simulations operate according to Newton's laws. The basic steps of the model are as follows. Each tick, each atom:
 
-Initially the monomers are colored alternating orange and blue.  Blue monomers interact only with their two neighboring orange monomers, and vice versa.
+- Calculates the force that it feels from all other atoms using the Lennard-Jones potential
+- Calculates its acceleration based on the net force and its mass using a = F / m
+- Updates its velocity based on its acceleration
+- Updates its position based on its velocity.
 
-Movement occurs in two alternating phases, one for the orange monomers, one for the blue.  For each monomer (of the appropriate color) a random direction to move in is chosen.  Before making the actual move we check if the move would cause the chain to either break or cross itself.  If not, the monomer moves one step in that direction.
+### The Lennard-Jones potential
+The Lennard-Jones potential tells you the potential energy of an atom, given its distance from another atom. The derivative of the Lennard-Jones potential tells yout he force an atom feels from another atom based on their distance.
 
-To check if a move will break the chain, we see if the moving monomer will leave a blank patch behind it.  To check if it will cross the chain, we see if the movement will cause the monomer to be next to another piece of the chain in front of it.
+The potential is: V=4ϵ[(σ/r)^12−(σ/r)^6]. Where V is the intermolecular potential between two atoms or molecules, ϵ is depth of the potential well, σ is the distance at which the potential is zero (visualized as the diameter of the atoms), and r is the center-to-center distance of separation between both particles. This is an approximation; the potential function of a real atom depends on its electronic structure and will differ somewhat from the Lennard-Jones potential.
+Atoms that are very close will be strongly pushed away from one another, and atoms that are far apart will be gently attracted. Make sure to check out the THINGS TO TRY section to explore the Lennard-Jones potential more in depth.
 
 ## HOW TO USE IT
 
-SETUP: initializes the simulation
+### Simulation initialization
+**initial-config**: select if you want the atoms to start out randomly positioned or in a hexagonally-close-packed structure.
 
-GO: starts the simulation
+**num-atoms**: select the number of atoms to start the simulation
 
-GO ONCE: advances the simulation one step only
+**temp**: select the initial temperature (this will determine the average initial velocity of the atoms.
+
+### Run the simulation
+
+**constant-temp?**: turn this on if you want temperature to be held constant. This can be turned on and off during the simulation run. When it is on, you can move the **temp** slider to change the temperature.
 
 ## THINGS TO NOTICE
 
-One interesting thing to notice is that, despite all the interactions being local, the polymer has a very realistic macroscopic movement.
+At low temperatures, the atoms will solidfy and at high temperatures they will break apart (evaporate). Also notice the the packing structure of atoms when they are in a solid and the structures that form when you cool the atoms down after evaporating compared to when they start in HCP.
 
-## THINGS TO TRY
-
-Try a much longer polymer.  This is done by making the world size bigger.  (You'll probably want to reduce the patch size.)
-
-Slow down the simulation, and observe the local interaction closely.
-
-Activate the 3D view, and try to follow a turtle.
-
-## EXTENDING THE MODEL
-
-Measure the distance between the two ends of the polymer and plot how it changes over time.
-
-Are other movement rules possible, without causing the chain to break or cross?
-
-Try having different mobility for different kinds of monomers.
-
-Make a preferential direction for movement, determined by a slider.
-
-Allow monomers to break apart from the polymer, in some particular situations.  Why might this happen?
-
-## NETLOGO FEATURES
-
-In order for the model to operate correctly on a torus, the dimensions of the world must be even, so we put the world origin in the corner.
-
-## RELATED MODELS
-
-CA 1D Elementary - an introduction to cellular automata
-Life Turtle-Based - a cellular automaton implemented, like this one, using turtles
-Radical Polymerization - another model about polymers
-
-## CREDITS AND REFERENCES
-
-For a detailed treatment of this model, see Yaneer Bar-Yam, Dynamics of Complex Systems (2003), pages 496-502.  Westview Press, Boulder, CO.  The book is available online at https://necsi.edu/dynamics-of-complex-systems.
-
-See also Y. Bar-Yam, Y. Rabin, M. A. Smith, Macromolecules Rep. 25 (1992) 2985.
 
 ## HOW TO CITE
 
@@ -397,23 +296,22 @@ If you mention this model or the NetLogo software in a publication, we ask that 
 
 For the model itself:
 
-* Wilensky, U. (2005).  NetLogo Polymer Dynamics model.  http://ccl.northwestern.edu/netlogo/models/PolymerDynamics.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+* Kelter, J. and Wilensky, U. (2005).  NetLogo Lennard-Jones Molecular Dynamics model.  http://ccl.northwestern.edu/netlogo/models/Electrostatics.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
 
 Please cite the NetLogo software as:
 
 * Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
 
+
 ## COPYRIGHT AND LICENSE
 
-Copyright 2005 Uri Wilensky.
+Copyright 2021 Jacob Kelter and Uri Wilensky.
 
 ![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
 
 This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
 
 Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
-
-<!-- 2005 -->
 @#$#@#$#@
 default
 true
@@ -697,7 +595,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.3.0
+NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
@@ -714,5 +612,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@

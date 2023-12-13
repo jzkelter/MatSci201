@@ -405,7 +405,7 @@ to mdc.drag-atoms-with-mouse-2sig
           set vy 0
         ]
       ]
-      display
+      ; display  ;; On some models, need this to have it work properly
     ]
   ]
 end
