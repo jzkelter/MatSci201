@@ -401,10 +401,10 @@ NIL
 HORIZONTAL
 
 PLOT
-784
-24
-1161
-263
+0
+570
+377
+809
 Molecular Weight Distribution
 Molecular Weight
 Number of Molecules
@@ -481,10 +481,10 @@ initiators: dark orange
 1
 
 MONITOR
-785
-277
-901
-322
+385
+570
+501
+615
 Number Avg MW
 num-avg-molecular-weight
 1
@@ -492,10 +492,10 @@ num-avg-molecular-weight
 11
 
 MONITOR
-911
-277
-1025
-322
+511
+570
+625
+615
 Weight Avg MW
 wgt-avg-molecular-weight
 1
@@ -503,10 +503,10 @@ wgt-avg-molecular-weight
 11
 
 MONITOR
-1035
-277
-1161
-322
+635
+570
+761
+615
 Polydispersity Index
 wgt-avg-molecular-weight / num-avg-molecular-weight
 2
@@ -514,17 +514,17 @@ wgt-avg-molecular-weight / num-avg-molecular-weight
 11
 
 PLOT
-786
-337
-1025
-527
+385
+620
+760
+810
 Monomer Concentration
 ticks
 # / volume
 0.0
 10.0
 0.0
-0.1
+0.15
 true
 false
 "" ""
@@ -995,7 +995,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.4.0-beta1
+NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
