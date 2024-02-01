@@ -337,22 +337,18 @@ end
 
 to mp.update-force-and-velocity-and-PE
   ask atoms [
-    let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-1sig
-    let n-fx item 0 force-velocity-PE
-    let n-fy item 1 force-velocity-PE
-    let sum-PE item 2 force-velocity-PE
+    let [n-fx n-fy sum-PE] mdc.calculate-force-and-velocity-and-PE-1sig
     
-    set n-fy n-fy + mp.ceiling-orfloor-force
-    
-    let force-velocity mp.update-external-force n-fx n-fy
-    set n-fx item 0 force-velocity
-    set n-fy item 1 force-velocity
+    set n-fy (n-fy + mp.ceiling-or-floor-force)
+       
+    set [n-fx n-fy] mp.update-external-force n-fx n-fy
     
     mdc.update-force-and-velocity n-fx n-fy
   ]
 end
 
-to-report mp.ceiling-orfloor-force
+
+to-report mp.ceiling-or-floor-force
   ifelse create-floor-and-ceiling? = true [
     ;; apply force in y-direction due to floor and ceiling
     let f 0
@@ -381,10 +377,9 @@ to-report mp.update-external-force [ n-fx n-fy ]
           ; ex-force is enough to cancel out any force plus a little more
           set ex-force ( - n-fx + 0.001 )
           ; auto-increment-force reports total ex-force offset in x direction, and force offset in y-direction
-          set auto-increment-force auto-increment-force + ex-force - n-fy
+          set auto-increment-force auto-increment-force + ex-force ;- n-fy
           set n-fy 0
-        ]
-        [ 
+        ] [ 
           set shape "circle-dot"
           set ex-force ( force-applied / num-forced-atoms ) 
         ]
