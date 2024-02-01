@@ -268,10 +268,7 @@ end
 
 to mdc.update-force-and-velocity-and-PE-1sig  ; atom procedure
   ask atoms [
-    let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-1sig
-    let n-fx item 0 force-velocity-PE
-    let n-fy item 1 force-velocity-PE
-    let sum-PE item 2 force-velocity-PE
+    let [n-fx n-fy sum-PE] mdc.calculate-force-and-velocity-and-PE-1sig
     
     mdc.update-force-and-velocity n-fx n-fy
   ]
@@ -300,11 +297,7 @@ end
 
 to mdc.update-force-and-velocity-and-PE-2sig
   ask atoms [    
-    let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-2sig
-    let n-fx item 0 force-velocity-PE
-    let n-fy item 1 force-velocity-PE
-    let sum-PE item 2 force-velocity-PE
-    
+    let [n-fx n-fy sum-PE] mdc.calculate-force-and-velocity-and-PE-2sig
     mdc.update-force-and-velocity n-fx n-fy
   ]
 end

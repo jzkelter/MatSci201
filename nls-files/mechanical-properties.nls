@@ -350,36 +350,35 @@ end
 
 to-report mp.ceiling-or-floor-force
   ifelse create-floor-and-ceiling? = true [
-    ;; apply force in y-direction due to floor and ceiling
-    let f 0
+    ;; apply force in y-direction due to floor and ceiling    
     (ifelse
-      ycor > (ceiling-ycor - (2 * r-min)) [
-        let ceiling-PE-and-force (mdc.LJ-potential-and-force-1sig (ceiling-ycor - ycor))
-        set f item 1 ceiling-PE-and-force
-        
+      ycor > (ceiling-ycor - (2 * r-min)) [  ; ceiling force
+        report item 1 (mdc.LJ-potential-and-force-1sig (ceiling-ycor - ycor))             
       ]
-      ycor < (floor-ycor + (2 * r-min)) [
-        let floor-PE-and-force (mdc.LJ-potential-and-force-1sig (ycor - ceiling-ycor))
-        set f item 1 floor-PE-and-force
+      ycor < (floor-ycor + (2 * r-min)) [  ; floor force
+        report item 1 (mdc.LJ-potential-and-force-1sig (ycor - ceiling-ycor))        
       ]
-    )
-    report f
+    )    
+  ] [ 
+    ; no ceiling or force
+    report 0 
   ]
-  [ report 0 ]
 end
 
 to-report mp.update-external-force [ n-fx n-fy ]
+  ;; atom procedure. n-fx and n-fy are the new forces the atoms feels this tick
   if not pinned? [
-      ; adjusting the forces to account for any external applied forces
-      let ex-force 0
+      ; adjust the forces to account for any external applied forces
+    
+    let ex-force 0  ; external force is 0 by default
+    
       if ex-force-applied? [
-        ifelse force-mode = "Tension" and auto-increment-force? [
-          ; ex-force is enough to cancel out any force plus a little more
-          set ex-force ( - n-fx + 0.001 )
-          ; auto-increment-force reports total ex-force offset in x direction, and force offset in y-direction
-          set auto-increment-force auto-increment-force + ex-force ;- n-fy
-          set n-fy 0
+        ifelse force-mode = "Tension" and auto-increment-force? [          
+          set ex-force ( - n-fx + 0.001 )  ; In tension, we want ex-force to cancel out any force plus a little more
+          set auto-increment-force auto-increment-force + ex-force ; auto-increment-force reports total ex-force in the x-direction
+          set n-fy 0 ; in tension, we want atoms with external force to not have any force in y-direction to prevent movement in that direction
         ] [ 
+        ; if force-mode is not tension and this is a forced atom, simply apply external-force
           set shape "circle-dot"
           set ex-force ( force-applied / num-forced-atoms ) 
         ]

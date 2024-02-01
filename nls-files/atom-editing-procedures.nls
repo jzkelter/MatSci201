@@ -114,7 +114,7 @@ to aep.change-atom-size [change]
   ask atoms with [selected?] [
     set sigma precision (sigma + change) 2
     (ifelse ; limit how small/big it can get
-      sigma < 0.2 [set sigma 0.2]
+      sigma < 0.1 [set sigma 0.1]
       sigma > 3 [set sigma 3]
     )
     ; mass is proportional to radius (it maybe should be sigma ^ 2 to be proportional to area, 
