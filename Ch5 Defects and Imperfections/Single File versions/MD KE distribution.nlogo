@@ -1,5 +1,3 @@
-__includes [ "../nls-files/molecular-dynamics-core.nls" ]
-
 ;; the following breed is for the molecular-dynamics-core.nls file
 breed [atoms atom]
 breed [trackers tracker] ; a breed to track number of atoms with a given KE
@@ -27,6 +25,21 @@ globals [
   bucket-width  ; width of bucket for keeping track of KE distribution
   blue-cutoff
   green-cutoff
+
+  ; plotting
+  blue-trackers
+  green-trackers
+  red-trackers
+
+  ;; MDC globals
+  eps
+  eps*4
+  cutoff-dist
+  dt
+  kb
+  LJ-force-linear-1sig
+  LJ-PE-linear-1sig
+
 ]
 
 
@@ -51,6 +64,12 @@ to setup
 
   ask one-of atoms [ mdc.setup-cutoff-linear-functions-1sig ]
   mdc.init-velocity
+
+
+  set blue-trackers sort trackers with [KE-bucket <= blue-cutoff]
+  set green-trackers sort trackers with [KE-bucket > blue-cutoff and KE-bucket <= green-cutoff]
+  set red-trackers sort trackers with [KE-bucket > green-cutoff]
+
 
   reset-timer
   reset-ticks
@@ -107,6 +126,397 @@ to color-by-KE
     [set color red] ;; else
   )
 
+end
+
+
+;; Molecular Dynamics Core
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Setup Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;
+
+to mdc.setup-constants
+  set dt .01
+  set kb 0.1 ; just picking a random constant for Kb that makes things work reasonably
+  set eps 1
+  set eps*4 eps * 4
+  set cutoff-dist 2.5 * r-min
+end
+
+to-report r-min
+  ; this is calculated by taking the derivative of the Lennard-Jones potential with sigma = 1,
+  ; setting it equal to zero and solving for r
+  report 2 ^ (1 / 6)
+end
+
+to mdc.setup-cutoff-linear-functions-1sig
+  ; function switches at 0.9 * cutoff-distance
+  ; calculates the force and potential at the switch-point, then makes a linear function from that point to the cutoff-distance
+  let switch-point cutoff-dist * 0.9
+  let third-power (sigma / switch-point) * (sigma / switch-point) * (sigma / switch-point)
+  let sixth-power third-power * third-power
+  let switch-force (-6 * eps*4 * sixth-power / switch-point) * (2 * sixth-power - 1)
+  let switch-potential (eps*4 * (sixth-power * sixth-power - sixth-power))
+  let force-slope ((- switch-force) / (cutoff-dist - switch-point))
+  let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
+
+  ; this is basically y = m * x + b, with b being 10 * switch-value
+  ; because the y-intercept is 10 times the distance from the cutoff-distance as the switch-point
+  set LJ-force-linear-1sig ( [ r -> r * force-slope + switch-force * 10 ] )
+  set LJ-PE-linear-1sig  ( [ r -> r * potential-slope + switch-potential * 10 ] )
+end
+
+
+to-report mdc.piecewise-linear-cutoffs-2sig [sig]
+  ; function switches at 0.9 * cutoff-distance
+  ; calculates the force and potential at the switch-point, then makes a linear function from that point to the cutoff-distance
+  let switch-point cutoff-dist * 0.9
+  let third-power (sig / switch-point) * (sig / switch-point) * (sig / switch-point)
+  let sixth-power third-power * third-power
+  let switch-force (-6 * eps*4 * sixth-power / switch-point) * (2 * sixth-power - 1)
+  let switch-potential (eps*4 * (sixth-power * sixth-power - sixth-power))
+  let force-slope ((- switch-force) / (cutoff-dist - switch-point))
+  let potential-slope ((- switch-potential) / (cutoff-dist - switch-point))
+
+  ; this is basically y = m * x + b, with b being 10 * switch-value
+  ; because the y-intercept is 10 times the distance from the cutoff-distance as the switch-point
+  report list [ r -> r * potential-slope + switch-potential * 10 ] [ r -> r * force-slope + switch-force * 10 ]
+end
+
+
+to mdc.init-atom
+  set shape "circle"
+  set color blue
+  set mass 1
+  set sigma 1
+  set pinned? false
+  set base-color blue
+end
+
+
+to mdc.setup-atoms-nrc [natoms-row natoms-column]
+  let xcenter (min-pxcor + max-pxcor) / 2
+  let ycenter (min-pycor + max-pycor) / 2
+
+  let x-dist r-min ; the distance between atoms in the x direction
+  let y-dist sqrt (x-dist ^ 2 - (x-dist / 2) ^ 2)
+
+  ; set first atom
+  create-atoms 1 [
+    mdc.init-atom
+    setxy (xcenter - (natoms-row - 1) * x-dist / 2) (ycenter - (natoms-column - 1) * y-dist / 2)
+  ]
+
+  ; create first row
+  repeat natoms-row - 1 [
+    ask atoms with [xcor = max [xcor] of atoms] [
+      hatch 1 [
+        set heading 90
+        forward r-min
+      ]
+    ]
+  ]
+
+  ; create columns
+  let pos-neg 1 ; alternate between 1 and -1
+  repeat natoms-column - 1 [
+    ask atoms with [ycor = max [ycor] of atoms] [
+      hatch 1 [
+        set heading (pos-neg * 30)
+        forward r-min
+      ]
+    ]
+    set pos-neg pos-neg * -1
+  ]
+end
+
+to mdc.setup-atoms-nrc-rotated [natoms-row natoms-column]
+  mdc.setup-atoms-nrc natoms-row natoms-column
+
+  let xcenter (min-pxcor + max-pxcor) / 2
+  let ycenter (min-pycor + max-pycor) / 2
+  ask atoms [ setxy (xcenter + (ycor - ycenter)) (ycenter - (xcor - xcenter)) ]
+end
+
+
+to mdc.setup-atoms-natoms [natoms]
+  ; create a square of atoms >= actual natoms
+  let l ceiling sqrt(natoms)
+  mdc.setup-atoms-nrc l l
+
+  let diff l ^ 2 - natoms
+  ask max-n-of diff atoms [xcor + ycor * 10] [die]
+end
+
+to mdc.setup-atoms-natoms-rotated [natoms]
+  ; create a square of atoms >= actual natoms
+  let l ceiling sqrt(natoms)
+  mdc.setup-atoms-nrc-rotated l l
+
+  let diff l ^ 2 - natoms
+  ask max-n-of diff atoms [xcor * 10 - ycor] [die]
+end
+
+
+to mdc.setup-atoms-random [natoms]
+  create-atoms natoms [
+    mdc.init-atom
+    setxy random-xcor random-ycor
+  ]
+  mdc.remove-overlap
+end
+
+to mdc.remove-overlap
+  ask atoms [
+    while [mdc.overlapping] [
+      setxy random-xcor random-ycor
+    ]
+  ]
+end
+
+to-report mdc.overlapping
+  report any? other atoms in-radius r-min
+end
+
+
+to mdc.pin-bottom-row
+  ask atoms with-min [ycor] [
+      set pinned? true
+      set shape "circle-X"
+    ]
+end
+
+
+to mdc.init-velocity
+  ask atoms with [not pinned?] [
+    let v-avg sqrt (2 * temp * Kb / mass)
+    let a random-float 1  ; a random amount of the total velocity to go the x direction
+    set vx sqrt (a * v-avg ^ 2) * mdc.positive-or-negative
+    set vy sqrt ( v-avg ^ 2 - vx ^ 2)  * mdc.positive-or-negative
+  ]
+end
+
+to-report mdc.positive-or-negative
+  report ifelse-value random 2 = 0 [-1] [1]
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; Runtime Procedures ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
+
+to mdc.move-atoms
+  ifelse mdc.world-wraps-both? [
+    ask atoms with [not pinned?] [mdc.move-wraps-on]
+  ]
+  [ ask atoms with [not pinned?] [mdc.move-wraps-off] ]
+end
+
+to-report mdc.world-wraps-both?
+    report [count neighbors4 = 4] of patch max-pxcor max-pycor
+end
+
+to-report mdc.world-wraps-x?
+  report [count neighbors4 with [pxcor = min-pxcor] = 1] of patch max-pxcor 0
+end
+
+to-report mdc.world-wraps-y?
+  report [count neighbors4 with [pycor = min-pycor] = 1] of patch 0 max-pycor
+end
+
+to mdc.move-wraps-on  ; atom procedure
+  ;; Uses velocity-verlet algorithm
+  set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
+  set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
+end
+
+to mdc.move-wraps-off
+  ;; Uses velocity-verlet algorithm
+  let new_x mdc.velocity-verlet-pos xcor vx (fx / mass)
+  let new_y mdc.velocity-verlet-pos ycor vy (fy / mass)
+
+  ifelse new_x < max-pxcor and new_x > min-pxcor [
+    set xcor new_x
+  ] [
+    ; if the atoms would have moved off the screen, we don't move and set velocity to zero
+    set vx 0
+  ]
+
+  ifelse new_y < max-pycor and new_y > min-pycor [
+    set ycor new_y
+  ] [
+    ; if the atoms would have moved off the screen, we don't move and set velocity to zero
+    set vy 0
+  ]
+end
+
+to mdc.move-atoms-die-at-edge
+  ask atoms with [not pinned?] [
+    set xcor mdc.velocity-verlet-pos xcor vx (fx / mass)
+    set ycor mdc.velocity-verlet-pos ycor vy (fy / mass)
+
+    if xcor > max-pxcor or xcor < min-pxcor or ycor > max-pycor or ycor < min-pycor [
+      die ; kills atoms when they move off the world
+    ]
+  ]
+end
+
+
+to mdc.update-force-and-velocity-and-PE-1sig  ; atom procedure
+  ask atoms [
+    let force-velocity-PE mdc.calculate-force-and-velocity-and-PE-1sig
+    let n-fx item 0 force-velocity-PE
+    let n-fy item 1 force-velocity-PE
+    let sum-PE item 2 force-velocity-PE
+
+    mdc.update-force-and-velocity n-fx n-fy
+  ]
+end
+
+to-report mdc.calculate-force-and-velocity-and-PE-1sig
+  let n-fx 0
+  let n-fy 0
+  let sum-PE 0
+  ask other atoms in-radius cutoff-dist [
+    ; each atom calculates the force it feels from its
+    ; neighboring atoms and sums these forces
+    let r distance myself
+    let indiv-pot-E-and-force (mdc.LJ-potential-and-force-1sig r)
+    let force last indiv-pot-E-and-force
+    face myself
+    rt 180
+    set n-fx n-fx + (force * dx)
+    set n-fy n-fy + (force * dy)
+    set sum-PE sum-PE + first indiv-pot-E-and-force
+  ]
+  set atom-PE sum-PE / 2  ; divide by 2 to not double count pot-E for each atom
+
+  report (list n-fx n-fy sum-PE)
+end
+
+
+
+to mdc.update-force-and-velocity [n-fx n-fy]
+  ; updating velocity and force
+  if not pinned? [
+    set vx mdc.velocity-verlet-velocity vx (fx / mass) (n-fx / mass)
+      set vy mdc.velocity-verlet-velocity vy (fy / mass) (n-fy / mass)
+      set fx n-fx
+      set fy n-fy
+  ]
+end
+
+
+; this heats or cools the system based on the average temperature of the system compared to the set temp
+to mdc.scale-velocities
+  let ctemp mdc.current-temp
+  (ifelse
+    ctemp = 0 and temp != 0 [
+      ask atoms [mdc.init-velocity]
+    ]
+    ctemp != 0 [
+      let scale-factor sqrt( temp / ctemp )  ; if "external" temperature is higher atoms will speed up and vice versa
+      ask atoms [
+        set vx vx * scale-factor
+        set vy vy * scale-factor
+      ]
+    ]
+  )
+end
+
+to-report mdc.current-temp
+  ; temperature = kinetic energy / boltzmann constant, with KE = (1/2) * m * v^2
+  report mean [ (mass / Kb) * (1 / 2) * (vx ^ 2 + vy ^ 2) ] of atoms with [not pinned?]
+end
+
+
+;; *****************************************************
+;; *********      Interaction Procedures      **********
+;; *****************************************************
+
+to mdc.drag-atoms-with-mouse-1sig
+  if mouse-down? [
+    let close-atoms atoms with [mdc.distance-to-mouse < 0.5]
+    if any? close-atoms [
+      ask min-one-of close-atoms [mdc.distance-to-mouse] [
+        let oldx xcor
+        let oldy ycor
+        setxy mouse-xcor mouse-ycor
+        ; this is set for mdc. for now, this is affected by the duplicate LJ
+        ifelse mdc.calc-PE-1sig > 1 [ ; if energy would be too high, don't let the atom go there.
+          setxy oldx oldy
+        ] [
+          set vx 0
+          set vy 0
+        ]
+      ]
+      display
+    ]
+  ]
+end
+
+
+
+to-report mdc.distance-to-mouse
+  report distancexy mouse-xcor mouse-ycor
+end
+
+
+;; *****************************************************
+;; ****** Lennard-Jones Potential/Force Procedures *****
+;; *****************************************************
+
+;; this next section is LJ for single sigma
+
+to-report mdc.LJ-potential-and-force-1sig [r]
+  ;; piecewise function in order to not have a discontinuous change at the cutoff-distance
+  ;; switches to a linear function that goes to 0 at the cutoff-distance, starting at 0.9 * cutoff-distance
+  ;; https://www.desmos.com/calculator/w302kgs0ed
+  let switch-point cutoff-dist * 0.9
+  ifelse r <= switch-point [
+    ; The following is the Lennard-Jones potential and its derivative, just rearranged to optimize calculation speed.
+    ; The unoptimized calculation would look like this:
+    ; let force eps*4 * (-12 * (sig ^ 12 / r ^ 13) + 6 * (sig ^ 6 / r ^ 7))
+    ; let potential eps*4 * ((sig / r) ^ 12 - (sig / r) ^ 6)
+    let third-power (sigma / r) * (sigma / r) * (sigma / r)
+    let sixth-power third-power * third-power
+    let force (-6 * eps*4 * sixth-power / r) * (2 * sixth-power - 1)
+    let potential (eps*4 * (sixth-power * sixth-power - sixth-power))
+    report list potential force
+  ]
+  [
+    ; Switches to a linear function near the cutoff distance to avoid a discontinuity in the function
+    let force ( runresult LJ-force-linear-1sig r )
+    let potential (runresult LJ-PE-linear-1sig r )
+
+    report list potential force
+  ]
+end
+
+to-report mdc.calc-PE-1sig
+  let U 0  ;; U stands for PE
+
+  ask other atoms in-radius cutoff-dist [
+    set U U + mdc.calc-pair-PE-with-1sig myself
+  ]
+  report U
+end
+
+to-report mdc.calc-pair-PE-with-1sig [other-atom]
+  let PE-and-force mdc.LJ-potential-and-force-1sig distance other-atom
+  report first PE-and-force
+end
+
+
+
+;; velocity verlet used by both
+
+to-report mdc.velocity-verlet-pos [pos v a]  ; position, velocity and acceleration
+  report pos + v * dt + (1 / 2) * a * (dt ^ 2)
+end
+
+to-report mdc.velocity-verlet-velocity [v a new-a]  ; velocity, previous acceleration, new acceleration
+  report v + (1 / 2) * (new-a + a) * dt
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -226,9 +636,9 @@ false
 false
 "" "if ticks > 0 [\nclear-plot\nset-plot-y-range 0 ceiling (0.1 + max [N / (ticks + 1)] of trackers)\n]"
 PENS
-"average" 0.1 1 -13345367 true "" "foreach sort trackers with [KE-bucket < blue-cutoff] [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
-"pen-1" 0.1 1 -10899396 true "" "foreach sort trackers with [KE-bucket <= green-cutoff and KE-bucket > blue-cutoff] [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
-"pen-2" 0.1 1 -2674135 true "" "foreach sort trackers with [KE-bucket > green-cutoff] [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
+"average" 0.1 1 -13345367 true "" "foreach blue-trackers [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
+"pen-1" 0.1 1 -10899396 true "" "foreach green-trackers [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
+"pen-2" 0.1 1 -2674135 true "" "foreach red-trackers [t -> \n ask t [plotxy (who * bucket-width) (N / (ticks + 1))]]"
 
 @#$#@#$#@
 ## WHAT IS IT?

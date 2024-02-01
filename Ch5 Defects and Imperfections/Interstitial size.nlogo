@@ -429,6 +429,56 @@ sum [atom-pe] of atoms
 11
 
 @#$#@#$#@
+## WHAT IS IT?
+
+This is a model showing the effects of interstitial atoms in a crystal. An interstitial atom is one that occupies a lattice site in between the sites of the majority atoms making up the crystal. 
+
+## HOW IT WORKS
+
+The base model is a molecular dynamics model using the Lennard-Jones potential for interatomic forces. But, the size parameter, sigma, is now the average of the sigma for each atom instead of a single paramter for all atoms. This means atoms can be of different sizes and still interact. 
+
+## HOW TO USE IT
+
+Press `setup` and `go` and then use the `decrease-size` and `increase-size` buttons to change the size of the red interstitial atom. 
+
+## THINGS TO NOTICE
+
+Notice how changing the size of the interstitial atom changes the potential energy of the system. 
+
+## THINGS TO TRY
+
+Try making the interstitial atom very big. What happens to the crystal structure and potential energy? Why? 
+
+
+## RELATED MODELS
+
+
+
+## CREDITS AND REFERENCES
+
+This model uses the integration method known as Velocity Verlet. See the [wikipedia entry](https://en.wikipedia.org/wiki/Verlet_integration#Velocity_Verlet) for more information
+
+## HOW TO CITE
+
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
+
+For the model itself:
+
+* Kelter, J. and Emery, J. (2023).  NetLogo Substitution Size model.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+Please cite the NetLogo software as:
+
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+## COPYRIGHT AND LICENSE
+
+Copyright 2022 Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
 @#$#@#$#@
 default
 true

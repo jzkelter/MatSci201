@@ -387,6 +387,56 @@ PENS
 "rolling avg" 1.0 0 -13345367 true "" "plot rolling-avg-pe"
 
 @#$#@#$#@
+## WHAT IS IT?
+
+This is a model showing the effects of vacancies in crystal. A vacancy an empty lattice site that would contain an atom in a perfect crystal. 
+
+## HOW IT WORKS
+
+This is a molecular dynamics model using the Lennard-Jones potential for interatomic forces. In this model, temperature is **not** kept constant. 
+
+## HOW TO USE IT
+
+Press `setup` and `go` and then click on atoms to remove them to create vacancies. 
+
+## THINGS TO NOTICE
+
+Notice how creating vacancies changes the average potential energy of the atoms. What happens to the potential and kinetic energy when the crystal shifts to remove the vacancy?
+
+## THINGS TO TRY
+
+See how many vacancies you can add to the crystal without it shifting to remove them. 
+
+
+## RELATED MODELS
+
+
+
+## CREDITS AND REFERENCES
+
+This model uses the integration method known as Velocity Verlet. See the [wikipedia entry](https://en.wikipedia.org/wiki/Verlet_integration#Velocity_Verlet) for more information
+
+## HOW TO CITE
+
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
+
+For the model itself:
+
+* Kelter, J. and Emery, J. (2023).  NetLogo Substitution Size model.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+Please cite the NetLogo software as:
+
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+## COPYRIGHT AND LICENSE
+
+Copyright 2022 Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
 @#$#@#$#@
 default
 true

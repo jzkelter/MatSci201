@@ -43,8 +43,6 @@ to setup
 
   setup-substitution
 
-  aep.setup-messages
-
   reset-ticks
 end
 
@@ -101,11 +99,11 @@ end
 GRAPHICS-WINDOW
 190
 10
-538
-359
+543
+364
 -1
 -1
-48.6
+49.3
 1
 12
 1
@@ -368,10 +366,10 @@ sigma
 HORIZONTAL
 
 TEXTBOX
-295
-330
-445
-348
+310
+325
+460
+343
 Atoms with X don't move
 11
 9.9
@@ -407,6 +405,56 @@ sum [atom-pe] of atoms
 11
 
 @#$#@#$#@
+## WHAT IS IT?
+
+This is a model showing the effects of substitutional atoms in crystal. A substitutional atom is one that occupies the same lattice site as the majority atoms making up the crystal, hence "substituting" for one of them. Because it is a different atom, it will distort the lattice around it. 
+
+## HOW IT WORKS
+
+The base model is a molecular dynamics model using the Lennard-Jones potential for interatomic forces. But, the size parameter, sigma, is now the average of the sigma for each atom instead of a single paramter for all atoms. This means atoms can be of different sizes and still interact. 
+
+## HOW TO USE IT
+
+Press `setup` and `go` and then use the `decrease-size` and `increase-size` buttons to change the size of the purple substitutional atom. 
+
+## THINGS TO NOTICE
+
+Notice how changing the size of the substituional atom changes the potential energy of the system. 
+
+## THINGS TO TRY
+
+Try making the substituional atom very big. What happens to the crystal structure and potential energy? Why? 
+
+
+## RELATED MODELS
+
+
+
+## CREDITS AND REFERENCES
+
+This model uses the integration method known as Velocity Verlet. See the [wikipedia entry](https://en.wikipedia.org/wiki/Verlet_integration#Velocity_Verlet) for more information
+
+## HOW TO CITE
+
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
+
+For the model itself:
+
+* Kelter, J. and Emery, J. (2023).  NetLogo Substitution Size model.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+Please cite the NetLogo software as:
+
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+## COPYRIGHT AND LICENSE
+
+Copyright 2022 Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
 @#$#@#$#@
 default
 true

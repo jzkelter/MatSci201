@@ -6,6 +6,7 @@ globals [
   rolling-avg-vacancies
   total-vacancies
   prior-temp
+  conc-max ; max-concentration reached so far
 ]
 
 to setup
@@ -28,7 +29,7 @@ to setup
   set prior-temp temperature
   set rolling-avg-vacancies 0
   set total-vacancies 0
-
+  set conc-max .005
   reset-ticks
 end
 
@@ -40,11 +41,17 @@ to go
   set rolling-avg-vacancies .995 * rolling-avg-vacancies + .005 * num-vacancies
   set total-vacancies total-vacancies + num-vacancies
 
+
   if prior-temp != temperature [
     reset-ticks
     set prior-temp temperature
     set total-vacancies 0
   ]
+
+  if (num-vacancies / count atoms) > conc-max [
+    set conc-max precision (num-vacancies / count atoms) 3
+  ]
+
   tick
 end
 
@@ -87,9 +94,9 @@ to-report avg-vacancies
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-285
+265
 10
-662
+642
 388
 -1
 -1
@@ -130,35 +137,16 @@ NIL
 NIL
 0
 
-PLOT
-0
-245
-255
-395
-Vacancies vs Time
-time
-vacancies
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"instantaneous" 1.0 0 -16777216 true "" "plot num-vacancies"
-"avg" 1.0 0 -2674135 true "" "plot rolling-avg-vacancies"
-
 SLIDER
 1
 50
-257
+256
 83
 temperature
 temperature
 .1
 1
-0.16
+0.25
 .01
 1
 NIL
@@ -198,33 +186,11 @@ NIL
 NIL
 1
 
-MONITOR
-15
-195
-106
-240
-Avg. Vacancies
-avg-vacancies
-7
-1
-11
-
-MONITOR
-265
-410
-392
-455
-avg. concentration
-avg-vacancies / count atoms
-7
-1
-11
-
 PLOT
 0
-405
+180
 255
-610
+390
 Vacancy Concentration vs Time
 Ticks
 Vacancy Concentration
@@ -234,16 +200,16 @@ Vacancy Concentration
 0.005
 true
 false
-"" ""
+"" "if ticks mod 20 = 0 [\nset-plot-x-range 0 (ticks + 20)\nset-plot-y-range 0 conc-max\n]"
 PENS
 "default" 1.0 0 -16777216 true "" "plot num-vacancies / count atoms"
 "pen-1" 1.0 0 -2674135 true "" "plot rolling-avg-vacancies / count atoms"
 
 SLIDER
 0
-100
-172
-133
+90
+255
+123
 bond-energy
 bond-energy
 -2
@@ -255,59 +221,71 @@ NIL
 HORIZONTAL
 
 MONITOR
-115
-195
-247
-240
-expected vacancies
-count atoms * exp(3 * bond-energy / temperature)
-12
-1
-11
-
-MONITOR
-405
-410
-545
-455
-expected concentration
-exp(3 * bond-energy / temperature)
-13
+0
+130
+255
+175
+Avg. Vacancy Concentration
+total-vacancies / (ticks * count atoms + 1)
+5
 1
 11
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-
+This is a model of vacancies forming in a crystal lattice. 
 
 ## HOW IT WORKS
 
+The crystal is modeled as a square lattice (a grid) and atoms randomly jump to neighboring vacant sites (either vacancies in the crystal or vacant sites on the surface). Randomly jumping to neighboring sites is simplification of the idea that atoms are constantly vibrating around and sometimes will vibrate in the right direction with enough energy to jump out of the current site to a neighboring site. 
+
+The probability of jumping is based on the temperature and the energy difference between the starting position of the atom and spot it is jumping to. The energy of each site is equal to the number of atoms neighboring the site on its four sides multiplied by `bond-energy` (which is always negative). The more neighboring atoms, the lower energy the site is. Then:
+
+- If the new site has a lower energy than the old site, the atom always moves
+- If the new site has a higher energy than the old site, the atom will jump with a probability related to the energy difference and the temperature. The bigger the increase in energy, the less likely the jump while the higher the temperature, the more likely the jump. 
 
 
 ## HOW TO USE IT
+
+Press `setup` and `go` to run the model. Try adjusting the `temperature` and `bond-energy` sliders to see how this affects the vacancy concentration. 
 
 
 
 ## THINGS TO NOTICE
 
+Notice how the vacancy concentratio changes with changed temperature and bond energy. 
 
 
 ## EXTENDING THE MODEL
+Try adding a second type of atom with a different bond energy. 
 
-
-
-## NETLOGO FEATURES
 
 
 ## RELATED MODELS
+Vacancy diffusion model
 
+## HOW TO CITE
 
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
 
-## CREDITS AND REFERENCES
+For the model itself:
 
+* Kelter, J. (2023).  NetLogo Monte Vacancy Concentration Random Walk. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
 
-For additional information:
+Please cite the NetLogo software as:
+
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+## COPYRIGHT AND LICENSE
+
+Copyright 2015 Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
 @#$#@#$#@
 default
 true

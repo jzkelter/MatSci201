@@ -1,15 +1,24 @@
-turtles-own [ wealth ]
+breed [people person]
+breed [counters counter] ; to keep track of distribution
+
+people-own [ wealth ]
+counters-own [ N ] ; N people with this wealth
+
 
 
 to setup
   clear-all
-  create-turtles 500 [
+  create-counters 600 / 5 [
+    hide-turtle
+  ]
+
+  create-people 500 [
     set wealth 100
     set shape "circle"
     set color green
     set size 2
 
-    ;; visualize the turtles from left to right in ascending order of wealth
+    ;; visualize the people from left to right in ascending order of wealth
     setxy wealth random-ycor
   ]
   reset-ticks
@@ -17,17 +26,30 @@ end
 
 to go
   ;; transact and then update your location
-  ask turtles with [ wealth > 0 ] [
-    ;; give a dollar to another turtle
-    ask one-of other turtles [ set wealth wealth + 1 ]
-    set wealth wealth - 1  ; subtract it from my wealth
+  ask people with [ wealth > 0 ] [transact]
+
+  ask people [
+    ;; prevent wealthy people from moving too far to the right -- that is, outside the view
+    if wealth <= max-pxcor [ set xcor wealth ]
+
+    if ticks > 5000 [track-wealth]
   ]
-  ;; prevent wealthy turtles from moving too far to the right -- that is, outside the view
-  ask turtles [ if wealth <= max-pxcor [ set xcor wealth ] ]
+
 
   tick
 end
 
+to transact
+  ;; give a dollar to another turtle
+  ask one-of other people [ set wealth wealth + 1 ]
+  set wealth wealth - 1  ; subtract it from my wealth
+end
+
+to track-wealth
+  ask counter round (wealth / 5) [
+    set N N + 1 ; running average of people in this wealth amount
+  ]
+end
 
 ; Copyright 2011 Uri Wilensky.
 ; See Info tab for full copyright and license.
@@ -107,9 +129,10 @@ turtles
 40.0
 true
 false
-"" ""
+"" "clear-all-plots"
 PENS
-"current" 5.0 1 -10899396 true "" "set-plot-y-range 0 40\nhistogram [ wealth ] of turtles"
+"current" 5.0 1 -10899396 true "" "set-plot-y-range 0 40\nset-plot-x-range 0 600\nhistogram [ wealth ] of people"
+"pen-1" 1.0 0 -16777216 true "" "foreach sort counters [c -> ask c [\nplotxy (who * 5) (N / (ticks - 5000))\n]]"
 
 @#$#@#$#@
 ## ACKNOWLEDGMENT
