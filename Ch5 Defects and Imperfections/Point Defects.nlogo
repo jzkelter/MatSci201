@@ -351,7 +351,7 @@ atom-viz-size
 atom-viz-size
 0
 1.1
-0.9
+0.8
 .1
 1
 sigma

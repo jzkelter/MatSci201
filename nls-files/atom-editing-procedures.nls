@@ -22,12 +22,12 @@ end
 
 to aep.setup-messages
   crt 1 [
-    setxy 2.5 2.5
+    setxy 6 2.5
     set size 0
     set message1 self
   ]
   crt 1 [
-    setxy 3 2.25
+    setxy 6.5 2
     set size 0
     set message2 self
   ]
@@ -61,18 +61,19 @@ to aep.add-atoms [ncolor nsigma]
         mdc.init-atom
         aep.init-atom
         set sigma nsigma
-        set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
+        set mass sigma  ; mass is proportional to radius (only kind of true in vertical direction of periodic table but oh well)
         aep.set-size
         set base-color read-from-string ncolor
         set color base-color
         setxy mouse-xcor mouse-ycor
       ]
-      wait 0.1
+      repeat 10 [go]      
     ] [
+      print "messages"
       ask message1 [set label "Adding that atom there will make things explode!"]
       ask message2 [set label "(if you are very precise it is possible to add an interstitial)"]
       display
-      wait 1
+      wait 2
       ask message1 [set label ""]
       ask message2 [set label ""]
     ]
@@ -114,14 +115,16 @@ to aep.change-atom-size [change]
   ask atoms with [selected?] [
     set sigma precision (sigma + change) 2
     (ifelse ; limit how small/big it can get
-      sigma < 0.1 [set sigma 0.1]
+      sigma < 0.2 [set sigma 0.2]
       sigma > 3 [set sigma 3]
     )
     ; mass is proportional to radius (it maybe should be sigma ^ 2 to be proportional to area, 
     ;     but atoms don't actually behave that way. Heavier atoms in the same period actually have
     ;     a smaller radius)
-    set mass sigma 
+    set mass 1 
     aep.set-size
+    set base-color read-from-string new-color
+    set color base-color
   ]
 end
 

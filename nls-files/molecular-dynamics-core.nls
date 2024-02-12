@@ -508,6 +508,10 @@ to-report mdc.calc-pair-PE-with-2sig [other-atom]
   report first PE-and-force
 end
 
+to-report mdc.calc-pair-PE-and-force-with-2sig [other-atom]
+  report mdc.LJ-potential-and-force-2sig (distance other-atom) sigma  [sigma] of other-atom
+end
+
 
 ;; velocity verlet used by both
 

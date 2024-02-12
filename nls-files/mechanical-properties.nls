@@ -47,6 +47,7 @@ to mp.setup-constants
   set eps 1
   set eps*4 eps * 4
   set cutoff-dist 2.5 * r-min
+  set atom-viz-size .9
 end
 
 to mp.setup-tension-col
@@ -274,12 +275,14 @@ end
 
 to mp.update-lattice-view
   (ifelse lattice-view = "large-atoms" [
+    set atom-viz-size .9
     ask atoms [
       show-turtle
       set size .9
     ]
   ]
   lattice-view = "small-atoms" [
+      set atom-viz-size .6
     ask atoms [
        show-turtle
        set size .6
@@ -323,6 +326,7 @@ to mp.identify-force-atoms
     set num-forced-atoms count forced-atoms
     ask forced-atoms [
       set ex-force-applied?  true
+      set shape "circle-dot"
     ]
     ]
     force-mode = "Compression" [
@@ -348,21 +352,35 @@ to mp.update-force-and-velocity-and-PE
 end
 
 
+to mp.update-force-and-velocity-and-PE-2sig
+  ask atoms [
+    let [n-fx n-fy sum-PE] mdc.calculate-force-and-velocity-and-PE-2sig
+    
+    set n-fy (n-fy + mp.ceiling-or-floor-force)
+       
+    set [n-fx n-fy] mp.update-external-force n-fx n-fy
+    
+    mdc.update-force-and-velocity n-fx n-fy
+  ]
+end
+
+
 to-report mp.ceiling-or-floor-force
-  ifelse create-floor-and-ceiling? = true [
+  let force 0
+  if create-floor-and-ceiling? = true [
     ;; apply force in y-direction due to floor and ceiling    
     (ifelse
       ycor > (ceiling-ycor - (2 * r-min)) [  ; ceiling force
-        report item 1 (mdc.LJ-potential-and-force-1sig (ceiling-ycor - ycor))             
+        set force item 1 (mdc.LJ-potential-and-force-1sig (ceiling-ycor - ycor))             
       ]
       ycor < (floor-ycor + (2 * r-min)) [  ; floor force
-        report item 1 (mdc.LJ-potential-and-force-1sig (ycor - ceiling-ycor))        
+        set force item 1 (mdc.LJ-potential-and-force-1sig (ycor - ceiling-ycor))        
       ]
     )    
-  ] [ 
-    ; no ceiling or force
-    report 0 
-  ]
+  ]  
+  
+  report force
+  
 end
 
 to-report mp.update-external-force [ n-fx n-fy ]

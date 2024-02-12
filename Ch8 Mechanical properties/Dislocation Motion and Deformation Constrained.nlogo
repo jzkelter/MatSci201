@@ -20,6 +20,12 @@ atoms-own [
   selected? ; whether the atom is selected or  not to change its size
 ]
 
+globals [
+  temp
+  force-mode
+  auto-increment-force?
+]
+
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ;; Setup Procedures ;;
@@ -28,27 +34,36 @@ atoms-own [
 to setup
   clear-all
   mp.setup-constants
-  mp.setup-tension-col
+  set temp 0.001
+  set dt .02
+  set force-mode "Shear"
+  set auto-increment-force? false
+
+  mdc.setup-cutoff-linear-functions-2sig
+
   mdc.setup-atoms-nrc atoms-per-row atoms-per-column
   ask atoms [
     mp.init-atom
     aep.init-atom
   ]
   mp.setup-force-mode-shape-and-pinned
+
+
   mp.update-lattice-view
   mdc.init-velocity
-  ask atom 1 [
-    mdc.setup-cutoff-linear-functions-1sig
-  ]
+
 
   vab.setup-links
+  aep.setup-messages
 
   mp.setup-dislocation
   mp.setup-force-lines
+  mp.identify-force-atoms
   mp.setup-floor-and-ceiling
 
   mp.setup-cross-section
   mp.setup-auto-increment-force
+
   reset-ticks
 end
 
@@ -57,21 +72,45 @@ end
 ;; Runtime Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+
 to go
   if lattice-view != prev-lattice-view [ mp.update-lattice-view ]
-  set auto-increment-force 0
+
   ask atom-links [ die ]
+
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms-die-at-edge
+
   mp.identify-force-atoms
-  mp.update-force-and-velocity-and-PE
+
+  mp.update-force-and-velocity-and-PE-2sig
+
   mdc.scale-velocities
+
   vab.update-atom-color-and-links
+
   mp.calculate-fl-positions
+
   vab.color-links  ; stylizing/coloring links
+
   tick-advance dt
   update-plots
 end
+
+
+to interact
+  if mouse-down? [
+    (ifelse
+      click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-2sig]
+      click-mode = "delete-atoms" [aep.delete-atoms]
+      click-mode = "add-atoms" [aep.add-atoms new-color new-atom-sigma]
+      click-mode = "select-atoms" [aep.select-atoms]
+    )
+    display
+  ]
+end
+
 
 
 ; Copyright 2020 Uri Wilensky.
@@ -80,11 +119,11 @@ end
 GRAPHICS-WINDOW
 220
 10
-888
-519
+643
+434
 -1
 -1
-20.0
+24.412
 1
 10
 1
@@ -94,10 +133,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--16
-16
--12
-12
+-8
+8
+-8
+8
 1
 1
 1
@@ -105,10 +144,10 @@ ticks
 30.0
 
 BUTTON
-10
-300
-96
-333
+0
+170
+86
+203
 NIL
 setup
 NIL
@@ -122,10 +161,10 @@ NIL
 1
 
 BUTTON
-104
-300
-189
-333
+95
+170
+180
+203
 NIL
 go
 T
@@ -138,83 +177,48 @@ NIL
 NIL
 0
 
-CHOOSER
-35
-10
-173
-55
-force-mode
-force-mode
-"Shear" "Tension" "Compression"
-2
-
 SLIDER
-15
-384
-187
-417
-temp
-temp
-0
-.2
-0.02
-.001
-1
-NIL
-HORIZONTAL
-
-SLIDER
-15
-427
-187
-460
+410
+435
+582
+468
 force-applied
 force-applied
 0
 30
-30.0
+0.0
 .1
 1
 N
 HORIZONTAL
 
 SWITCH
-17
-128
-176
-161
+0
+50
+195
+83
 create-dislocation?
 create-dislocation?
-1
+0
 1
 -1000
 
 SWITCH
-895
-65
-1125
-98
-color-atoms-by-potential-energy?
-color-atoms-by-potential-energy?
-1
-1
--1000
-
-CHOOSER
-895
-10
-1060
+695
 55
-lattice-view
-lattice-view
-"large-atoms" "small-atoms" "hide-atoms"
+922
+88
+color-atoms-by-PE?
+color-atoms-by-PE?
 1
+1
+-1000
 
 SWITCH
-895
-100
-1125
-133
+695
+90
+925
+123
 show-diagonal-right-links?
 show-diagonal-right-links?
 0
@@ -222,10 +226,10 @@ show-diagonal-right-links?
 -1000
 
 SWITCH
-895
-135
-1125
-168
+695
+125
+925
+158
 show-diagonal-left-links?
 show-diagonal-left-links?
 0
@@ -233,10 +237,10 @@ show-diagonal-left-links?
 -1000
 
 SWITCH
-895
-170
-1125
-203
+695
+160
+925
+193
 show-horizontal-links?
 show-horizontal-links?
 0
@@ -244,234 +248,273 @@ show-horizontal-links?
 -1000
 
 SLIDER
-12
-212
-184
-245
+0
+90
+195
+123
 atoms-per-row
 atoms-per-row
 5
 20
-13.0
+10.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-12
-254
-184
-287
+0
+132
+195
+165
 atoms-per-column
 atoms-per-column
 5
 20
-13.0
+10.0
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-905
-220
-1115
-265
+415
+473
+610
+518
 external force per forced atom (N)
 mp.report-indiv-ex-force
 3
 1
 11
 
-PLOT
-895
-270
-1130
-420
-Stress-Strain Curve - Tension
-strain
-stress
-0.0
-0.05
-0.0
-0.1
-true
-false
-"" ""
-PENS
-"default" 1.0 2 -16777216 true "" "if force-mode = \"Tension\" [ plotxy mp.strain mp.stress ]"
-
-MONITOR
-895
-425
-1021
-470
-total external force (N)
-mp.report-total-ex-force
-5
-1
-11
-
-MONITOR
-1032
-425
-1148
-470
-sample length (rm)
-right-edge - left-fl
-5
-1
-11
-
 TEXTBOX
-1153
-425
-1298
-495
-<- in terms of the \nequilibrium interatomic \ndistance between \ntwo atoms (rm)
-11
-0.0
-1
-
-TEXTBOX
-888
-480
-1038
-498
+705
+210
+855
+228
 NIL
 11
 0.0
 1
 
 TEXTBOX
-888
-480
-1038
-508
+705
+210
+855
+238
 Color Key\nLinks:
 11
 0.0
 1
 
 TEXTBOX
-898
-505
-1073
-523
+715
+235
+890
+253
 high compression: dark red
 11
 13.0
 1
 
 TEXTBOX
-898
-520
-1168
-538
+715
+250
+985
+268
 low compression: light red (+ grey tone)
 11
 18.0
 1
 
 TEXTBOX
-897
-534
-1047
-552
+714
+264
+864
+282
 equilibrium: grey
 11
 5.0
 1
 
 TEXTBOX
-897
-547
-1167
-575
+714
+277
+984
+305
 low tension: light yellow (+ grey tone)
 11
 0.0
 1
 
 TEXTBOX
-898
-563
-1058
-581
+715
+293
+875
+311
 high tension: dark yellow
 11
 44.0
 1
 
 TEXTBOX
-888
-580
-1043
-598
+705
+310
+860
+328
 Atoms:
 11
 0.0
 1
 
 TEXTBOX
-898
-595
-1168
-613
+715
+325
+985
+343
 low potential energy: dark blue
 11
 103.0
 1
 
 TEXTBOX
-898
-610
-1183
-638
+715
+340
+1000
+368
 high potential energy: light blue (-> white)
 11
 107.0
 1
 
 TEXTBOX
-898
-625
-1158
-706
+715
+355
+975
+436
 pinned atoms (do not move): black cross\natoms affected by an external force: \nblack dot, near a white line with \narrows on the end
 11
 0.0
 1
 
 SWITCH
-5
-60
-215
-93
-auto-increment-force?
-auto-increment-force?
+0
+10
+195
+43
+create-floor-and-ceiling?
+create-floor-and-ceiling?
 0
 1
 -1000
 
+CHOOSER
+25
+280
+163
+325
+click-mode
+click-mode
+"drag-atoms" "delete-atoms" "add-atoms" "select-atoms"
+2
+
+CHOOSER
+100
+385
+210
+430
+new-color
+new-color
+"red" "violet" "green" "orange" "blue"
+1
+
+SLIDER
+0
+435
+210
+468
+new-atom-sigma
+new-atom-sigma
+0.2
+1.3
+0.2
+.1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+0
+345
+95
+378
+decrease-size
+aep.change-atom-size (- .1)\nrepeat 5 [go]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+100
+345
+212
+378
+increase-size
+aep.change-atom-size .1\nrepeat 5 [go]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
 TEXTBOX
-50
-104
-200
-122
-(^ Tension only)
+20
+330
+195
+356
+For changing selected atoms
 11
 0.0
 1
 
+TEXTBOX
+15
+390
+105
+430
+Settings for adding new atoms
+11
+0.0
+1
+
+CHOOSER
+720
+10
+858
+55
+lattice-view
+lattice-view
+"small-atoms" "large-atoms" "hide-atoms"
+1
+
 BUTTON
-48
-342
-152
-375
-delete-atoms
-aep.delete-atoms
+35
+245
+157
+278
+add/edit atoms
+interact
 T
 1
 T
@@ -481,17 +524,6 @@ NIL
 NIL
 NIL
 0
-
-SWITCH
-10
-170
-192
-203
-create-floor-and-ceiling?
-create-floor-and-ceiling?
-1
-1
--1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -716,6 +748,21 @@ true
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 88 88 124
 
+circle-s
+false
+0
+Circle -7500403 true true 0 0 300
+Line -1 false 210 60 120 60
+Line -1 false 90 90 90 120
+Line -1 false 120 150 180 150
+Line -1 false 210 180 210 210
+Line -1 false 90 240 180 240
+Line -7500403 true 90 90 120 60
+Line -1 false 120 60 90 90
+Line -1 false 90 120 120 150
+Line -1 false 180 150 210 180
+Line -1 false 210 210 180 240
+
 circle-x
 false
 0
@@ -938,7 +985,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.3.0
+NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
