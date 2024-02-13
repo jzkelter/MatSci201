@@ -33,7 +33,7 @@ globals [
   prev-atom-viz-size  ; previous atom viz size
   message1 ; this variable holds a turtle for displaying messages.
   message2 ; this variable holds a turtle for displaying messages.
-
+  click-mode
 
   ;; MP globals
   prev-lattice-view ; the lattice view in the previous time step
@@ -89,7 +89,8 @@ to setup
   set dt .06
   set force-mode "Shear"
   set auto-increment-force? false
-  set create-floor-and-ceiling? true
+  set create-floor-and-ceiling? false
+  set click-mode "select-atoms"
   mdc.setup-cutoff-linear-functions-2sig
 
   mdc.setup-atoms-nrc atoms-per-row atoms-per-column
@@ -271,7 +272,7 @@ to aep.change-atom-size [change]
     set sigma precision (sigma + change) 2
     (ifelse ; limit how small/big it can get
       sigma < 0.2 [set sigma 0.2]
-      sigma > 3 [set sigma 3]
+      sigma > 1.5 [set sigma 1.5]
     )
     ; mass is proportional to radius (it maybe should be sigma ^ 2 to be proportional to area,
     ;     but atoms don't actually behave that way. Heavier atoms in the same period actually have
@@ -1268,9 +1269,9 @@ to vab.color-links
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-215
+220
 10
-688
+693
 484
 -1
 -1
@@ -1330,9 +1331,9 @@ NIL
 
 SLIDER
 0
-405
+400
 210
-438
+433
 force-applied
 force-applied
 0
@@ -1407,7 +1408,7 @@ atoms-per-row
 atoms-per-row
 5
 20
-10.0
+11.0
 1
 1
 NIL
@@ -1430,9 +1431,9 @@ HORIZONTAL
 
 MONITOR
 0
-440
+435
 210
-485
+480
 external force per forced atom (N)
 mp.report-indiv-ex-force
 3
@@ -1550,20 +1551,10 @@ pinned atoms (do not move): black cross\natoms affected by an external force: \n
 1
 
 CHOOSER
-105
-210
-210
-255
-click-mode
-click-mode
-"select-atoms" "drag-atoms" "delete-atoms"
-0
-
-CHOOSER
 45
-315
+295
 155
-360
+340
 new-color
 new-color
 "red" "violet" "green" "orange" "blue"
@@ -1571,9 +1562,9 @@ new-color
 
 BUTTON
 0
-275
+255
 95
-308
+288
 decrease-size
 aep.change-atom-size (- .1)\nrepeat 5 [go]
 NIL
@@ -1588,9 +1579,9 @@ NIL
 
 BUTTON
 100
-275
+255
 212
-308
+288
 increase-size
 aep.change-atom-size .1\nrepeat 5 [go]
 NIL
@@ -1601,16 +1592,6 @@ NIL
 NIL
 NIL
 NIL
-1
-
-TEXTBOX
-20
-260
-195
-286
-For changing selected atoms
-11
-0.0
 1
 
 CHOOSER
@@ -1625,9 +1606,9 @@ lattice-view
 
 BUTTON
 0
-210
-100
-255
+205
+85
+245
 edit atoms
 interact
 T
@@ -1641,20 +1622,20 @@ NIL
 0
 
 TEXTBOX
-5
-190
-215
-216
-You can edit atoms with 'go' on or off
+90
+205
+230
+255
+Click atoms to select them, then change their sizes with the buttons.
 11
 0.0
 1
 
 TEXTBOX
 40
-390
+385
 190
-408
+403
 Apply an external force
 11
 0.0
@@ -1672,9 +1653,9 @@ TEXTBOX
 
 TEXTBOX
 0
-360
+355
 205
-386
+381
 ----------------------------------
 11
 0.0

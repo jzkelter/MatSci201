@@ -83,7 +83,6 @@ globals [
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   link-check-dist ; each atom links with neighbors within this distance
   min-sigma-for-links
-  rolling-avg-stress
 ]
 
 
@@ -95,7 +94,6 @@ globals [
 to setup
   clear-all
   set force-mode "Tension"
-  set auto-increment-force? true
   set force-applied 0
   set temp .001
   mp.setup-constants
@@ -112,16 +110,27 @@ to setup
 
   vab.setup-links
 
-  mp.setup-dislocation
   mp.setup-force-lines
   mp.setup-floor-and-ceiling
 
   mp.setup-cross-section
   mp.setup-auto-increment-force
-  set rolling-avg-stress 0
+
+  burn-in-atoms
+
   reset-ticks
 end
 
+
+to burn-in-atoms
+  ;; run the model for a few tens of ticks so that the atoms act the same way on initiation
+  ;; as after tension has been applied then turned off, then turned on again.
+  reset-ticks
+  let initial-auto-increment-force? auto-increment-force?
+  set auto-increment-force?  false
+  repeat 60 [go]
+  set auto-increment-force?  initial-auto-increment-force?
+end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Procedures ;;
@@ -131,6 +140,7 @@ to go
   if lattice-view != prev-lattice-view [ mp.update-lattice-view ]
   set auto-increment-force 0
   ask atom-links [ die ]
+
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms-die-at-edge
   mp.identify-force-atoms
@@ -139,11 +149,10 @@ to go
   vab.update-atom-color-and-links
   mp.calculate-fl-positions
   vab.color-links  ; stylizing/coloring links
-  set rolling-avg-stress .95 * rolling-avg-stress + .05 * mp.stress
+
 
   if not auto-increment-force? [
-    set auto-increment-force 0
-    set rolling-avg-stress 0
+    ask atoms [set vy 0]
   ]
 
   tick-advance dt
@@ -488,24 +497,25 @@ end
 to-report mp.update-external-force [ n-fx n-fy ]
   ;; atom procedure. n-fx and n-fy are the new forces the atoms feels this tick
   if not pinned? [
-      ; adjust the forces to account for any external applied forces
+    ; adjust the forces to account for any external applied forces
 
     let ex-force 0  ; external force is 0 by default
 
-      if ex-force-applied? [
-        ifelse force-mode = "Tension" and auto-increment-force? [
-          set ex-force ( - n-fx + 0.001 )  ; In tension, we want ex-force to cancel out any force plus a little more
-          set auto-increment-force auto-increment-force + ex-force ; auto-increment-force reports total ex-force in the x-direction
-          set n-fy 0 ; in tension, we want atoms with external force to not have any force in y-direction to prevent movement in that direction
-        ] [
+    if ex-force-applied? [
+      ifelse force-mode = "Tension" and auto-increment-force? [
+        ;; if force is negative (atom is being pulled back) counteract that force plus a little. If not, don't do anything.
+        set ex-force ifelse-value n-fx < 0 [( - n-fx + 0.001 )] [0]
+        set auto-increment-force auto-increment-force + ex-force ; auto-increment-force reports total ex-force in the x-direction
+        set n-fy 0 ; in tension, we want atoms with external force to not have any force in y-direction to prevent movement in that direction
+      ] [
         ; if force-mode is not tension and this is a forced atom, simply apply external-force
-          set shape "circle-dot"
-          set ex-force ( force-applied / num-forced-atoms )
-        ]
+        set shape "circle-dot"
+        set ex-force ( force-applied / num-forced-atoms )
       ]
-      if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
-      set n-fx ex-force + n-fx
     ]
+    if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
+    set n-fx ex-force + n-fx
+  ]
   report list n-fx n-fy
 end
 
@@ -1313,7 +1323,7 @@ CHOOSER
 lattice-view
 lattice-view
 "large-atoms" "small-atoms" "hide-atoms"
-1
+0
 
 SWITCH
 680
@@ -1383,7 +1393,7 @@ PLOT
 175
 235
 435
-Stress-Strain Curve - Tension
+Stress-Strain Curve
 strain
 stress
 0.0
@@ -1394,8 +1404,7 @@ false
 false
 "" ""
 PENS
-"instant" 1.0 2 -4539718 true "" "plotxy mp.strain mp.stress \n"
-"rolling-avg" 1.0 0 -16777216 true "" "plotxy mp.strain rolling-avg-stress"
+"default" 1.0 2 -16777216 true "" "plotxy mp.strain mp.stress"
 
 TEXTBOX
 673
@@ -1527,6 +1536,23 @@ auto-increment-force?
 0
 1
 -1000
+
+BUTTON
+70
+440
+187
+473
+extend x-axis
+set-current-plot \"Stress-Strain Curve\"\nset-plot-x-range 0 precision (plot-x-max + 0.1) 1\n
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
