@@ -1,4 +1,5 @@
 breed [atoms atom]
+
 breed [fl-ends fl-end] ; turtles at the ends of the force lines, point in direction the force is acting
 undirected-link-breed [fl-links fl-link] ; force line links
 undirected-link-breed [wall-links wall-link] ; force line links
@@ -23,19 +24,16 @@ atoms-own [
 ]
 
 globals [
+  ; these are here because the interface elements don't exist
   temp
   force-mode
-  auto-increment-force?
-  new-atom-sigma
+  create-dislocation?
   create-floor-and-ceiling?
 
-  ;; AEP globals
-  prev-atom-viz-size  ; previous atom viz size
-  message1 ; this variable holds a turtle for displaying messages.
-  message2 ; this variable holds a turtle for displaying messages.
-  click-mode
-
-  ;; MP globals
+  force-applied
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; mp globals
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   prev-lattice-view ; the lattice view in the previous time step
   upper-left-fl ; upper left force line - shear
   left-fl ; left force line - compression
@@ -45,10 +43,8 @@ globals [
   orig-length ; original length of sample
   prev-length ; length of sample in previous time step
   unpinned-min-ycor ; min unpinnned ycor for shear
-  top-neck-atoms ; agentset of atoms on the top of the neck (thin region) (tension).
-                 ; Used in calculating stress
-  bottom-neck-atoms ; agentset of atoms on the bottom of the neck (thin region) (tension).
-                    ; Used in calculating stress
+  left-neck-atoms ; agentset of atoms on the left of the neck (thin region) (tension). Used in calculating stress
+  right-neck-atoms ; agentset of atoms on the right of the neck (thin region) (tension). Used in calculating stress
   num-forced-atoms ; number of atoms receiving external force directly
   auto-increment-force ; force to counteract LJ forces in the x-direction (tension)
   cross-section
@@ -58,8 +54,9 @@ globals [
   ;; the following global is for the atom-editing-procedures.nls file
   atom-viz-size
 
-
-  ;; MDC globals
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; mdc globals
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   eps
   eps*4
   cutoff-dist
@@ -72,10 +69,20 @@ globals [
   LJ-force-linear-2sig ; since sizes can change, we store the linear constants for different sizes of atom pairs
   LJ-PE-linear-2sig ; since sizes can change, we store the linear constants for different sizes of atom pairs
 
-  ;; viz globals
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; AEP globals
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  prev-atom-viz-size  ; previous atom viz size
+  message1 ; this variable holds a turtle for displaying messages.
+  message2 ; this variable holds a turtle for displaying messages.
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; ;vab globals
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   link-check-dist ; each atom links with neighbors within this distance
   min-sigma-for-links
 ]
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -84,214 +91,100 @@ globals [
 
 to setup
   clear-all
+  set force-mode "Tension"
+  set force-applied 0
+  set temp .001
   mp.setup-constants
-  set temp 0.001
-  set dt .06
-  set force-mode "Shear"
-  set auto-increment-force? false
-  set create-floor-and-ceiling? false
-  set click-mode "select-atoms"
-  mdc.setup-cutoff-linear-functions-2sig
-
+  mp.setup-tension-col
   mdc.setup-atoms-nrc atoms-per-row atoms-per-column
   ask atoms [
     mp.init-atom
     aep.init-atom
   ]
   mp.setup-force-mode-shape-and-pinned
-
-
   mp.update-lattice-view
   mdc.init-velocity
-
+  ask atom 1 [ mdc.setup-cutoff-linear-functions-1sig ]
 
   vab.setup-links
-  aep.setup-messages
 
-  mp.setup-dislocation
   mp.setup-force-lines
-  mp.identify-force-atoms
   mp.setup-floor-and-ceiling
 
   mp.setup-cross-section
   mp.setup-auto-increment-force
 
+  burn-in-atoms
+
+  draw-lines-to-see-poisson
+
   reset-ticks
 end
 
+to draw-lines-to-see-poisson
+  ask max-one-of left-neck-atoms [ycor] [draw-line]
+  ask min-one-of left-neck-atoms [ycor] [draw-line]
+end
+
+to draw-line
+  set heading 90
+  set color white
+  let dots-per-patch 8
+  repeat world-width * dots-per-patch [
+    fd 1 / dots-per-patch
+    ifelse pen-mode = "up" [
+      set pen-mode "down"
+    ] [
+      set pen-mode "up"
+    ]
+  ]
+  set pen-mode "up"
+  set color blue
+end
+
+
+to burn-in-atoms
+  ;; run the model for a few tens of ticks so that the atoms act the same way on initiation
+  ;; as after tension has been applied then turned off, then turned on again.
+  reset-ticks
+  let initial-auto-increment-force? auto-increment-force?
+  set auto-increment-force?  false
+  repeat 60 [go]
+  set auto-increment-force?  initial-auto-increment-force?
+end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-
 to go
   if lattice-view != prev-lattice-view [ mp.update-lattice-view ]
-
+  set auto-increment-force 0
   ask atom-links [ die ]
 
   ; moving happens before velocity and force update in accordance with velocity verlet
   mdc.move-atoms-die-at-edge
-
   mp.identify-force-atoms
-
-  mp.update-force-and-velocity-and-PE-2sig
-
+  mp.update-force-and-velocity-and-PE
   mdc.scale-velocities
-
   vab.update-atom-color-and-links
-
   mp.calculate-fl-positions
-
   vab.color-links  ; stylizing/coloring links
+
+
+  if not auto-increment-force? [
+    ask atoms [set vy 0]
+  ]
 
   tick-advance dt
   update-plots
 end
 
 
-to interact
-  if mouse-down? [
-    (ifelse
-      click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-2sig]
-      click-mode = "delete-atoms" [aep.delete-atoms]
-      click-mode = "add-atoms" [aep.add-atoms new-color new-atom-sigma]
-      click-mode = "select-atoms" [aep.select-atoms]
-    )
-    display
-  ]
-end
 
-
-
-;; AEP procedures
-
-;;;;;;;;;;;;;;;;;;;;;;
-;; Setup Procedures ;;
-;;;;;;;;;;;;;;;;;;;;;;
-
-to aep.init-atom
-  set selected? false
-  aep.set-size
-end
-
-to aep.setup-messages
-  crt 1 [
-    setxy 6 2.5
-    set size 0
-    set message1 self
-  ]
-  crt 1 [
-    setxy 6.5 2
-    set size 0
-    set message2 self
-  ]
-end
-
-;;*******************************************************
-;;**************** Go Procedures ************************
-;;*******************************************************
-
-to aep.update-atom-size-viz
-  if atom-viz-size != prev-atom-viz-size [
-    ask atoms [aep.set-size]
-  ]
-  set prev-atom-viz-size  atom-viz-size
-end
-
-
-;; *****************************************************
-;; *********      Interaction Procedures      **********
-;; *****************************************************
-
-; ncolor & nsigma taken as input arguments, they are interface elements in Point Defects
-to aep.add-atoms [ncolor nsigma]
-  if mouse-down? and not any? atoms with [distancexy mouse-xcor mouse-ycor < .2] [
-    let closest-atom min-one-of atoms [distancexy mouse-xcor mouse-ycor]
-    let new-atom-force last [mdc.LJ-potential-and-force-2sig (distancexy mouse-xcor mouse-ycor) sigma nsigma] of closest-atom
-
-    ifelse abs new-atom-force < 30 [
-
-      create-atoms 1 [
-        mdc.init-atom
-        aep.init-atom
-        set sigma nsigma
-        set mass sigma  ; mass is proportional to radius (only kind of true in vertical direction of periodic table but oh well)
-        aep.set-size
-        set base-color read-from-string ncolor
-        set color base-color
-        setxy mouse-xcor mouse-ycor
-      ]
-      repeat 10 [go]
-    ] [
-      print "messages"
-      ask message1 [set label "Adding that atom there will make things explode!"]
-      ask message2 [set label "(if you are very precise it is possible to add an interstitial)"]
-      display
-      wait 2
-      ask message1 [set label ""]
-      ask message2 [set label ""]
-    ]
-  ]
-end
-
-
-to aep.delete-atoms
-  if mouse-down? [
-    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
-      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
-    display
-  ]
-
-end
-
-
-to aep.select-atoms
-  if mouse-down? [
-    ask atoms with [distancexy mouse-xcor mouse-ycor < (1 / 2)] [
-      set selected? not selected?
-      aep.set-shape
-    ]
-    wait 0.1
-  ]
-end
-
-to aep.set-shape
-  ifelse selected? [
-    ;set shape "circle 2"
-    set shape "circle-s"
-  ] [
-    set shape "circle"
-  ]
-end
-
-
-to aep.change-atom-size [change]
-  ask atoms with [selected?] [
-    set sigma precision (sigma + change) 2
-    (ifelse ; limit how small/big it can get
-      sigma < 0.2 [set sigma 0.2]
-      sigma > 1.5 [set sigma 1.5]
-    )
-    ; mass is proportional to radius (it maybe should be sigma ^ 2 to be proportional to area,
-    ;     but atoms don't actually behave that way. Heavier atoms in the same period actually have
-    ;     a smaller radius)
-    set mass 1
-    aep.set-size
-    set base-color read-from-string new-color
-    set color base-color
-  ]
-end
-
-
-to aep.set-size
-  set size sigma * atom-viz-size
-end
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; MP procedures
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; mechanical-properties procedures
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;
 ;; Setup Procedures ;;
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -304,7 +197,6 @@ to mp.setup-constants
   set eps 1
   set eps*4 eps * 4
   set cutoff-dist 2.5 * r-min
-  set atom-viz-size .9
 end
 
 to mp.setup-tension-col
@@ -360,6 +252,10 @@ to mp.setup-force-mode-shape-and-pinned
         set shape "circle-dot"
       ]
       set num-forced-atoms count atoms with [ex-force-applied?]
+
+      set left-neck-atoms atoms with [xcor >= (x-min + 2.5) and xcor < (x-min + 3.5)]
+      set right-neck-atoms atoms with [xcor <= (xmax - 2.5) and xcor > (xmax - 3.5)]
+
     ]
     force-mode = "Compression" [
       ask atoms with [xcor = xmax or xcor = xmax - (x-dist / 2) ] [set pinned? true]
@@ -419,7 +315,8 @@ to mp.setup-force-lines
     create-fl-ends 2
     set right-fl xmax
     set left-edge x-min
-    set orig-length right-fl - left-edge
+    ; set orig-length right-fl - left-edge
+    set orig-length (mean [xcor] of right-neck-atoms) - (mean [xcor] of left-neck-atoms)
     ask one-of fl-ends with [xcor = 0 and ycor = 0] [
       set xcor right-fl
       set ycor ymax + (y-dist * 2) ]
@@ -511,7 +408,7 @@ to mp.setup-cross-section
     let xcenter (max-pxcor + min-pxcor) / 2
     let top-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-max [ycor]
     let bottom-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-min [ycor]
-    set cross-section top-neck-ycor - bottom-neck-ycor
+    set cross-section top-neck-ycor - bottom-neck-ycor + [sigma] of one-of atoms  ;; include sigma so that a one-atom thick string doesn't have zero cross-section
   ]
 end
 
@@ -532,14 +429,12 @@ end
 
 to mp.update-lattice-view
   (ifelse lattice-view = "large-atoms" [
-    set atom-viz-size .9
     ask atoms [
       show-turtle
       set size .9
     ]
   ]
   lattice-view = "small-atoms" [
-      set atom-viz-size .6
     ask atoms [
        show-turtle
        set size .6
@@ -583,7 +478,6 @@ to mp.identify-force-atoms
     set num-forced-atoms count forced-atoms
     ask forced-atoms [
       set ex-force-applied?  true
-      set shape "circle-dot"
     ]
     ]
     force-mode = "Compression" [
@@ -609,63 +503,51 @@ to mp.update-force-and-velocity-and-PE
 end
 
 
-to mp.update-force-and-velocity-and-PE-2sig
-  ask atoms [
-    let [n-fx n-fy sum-PE] mdc.calculate-force-and-velocity-and-PE-2sig
-
-    set n-fy (n-fy + mp.ceiling-or-floor-force)
-
-    set [n-fx n-fy] mp.update-external-force n-fx n-fy
-
-    mdc.update-force-and-velocity n-fx n-fy
-  ]
-end
-
-
 to-report mp.ceiling-or-floor-force
-  let force 0
-  if create-floor-and-ceiling? = true [
+  ifelse create-floor-and-ceiling? = true [
     ;; apply force in y-direction due to floor and ceiling
     (ifelse
       ycor > (ceiling-ycor - (2 * r-min)) [  ; ceiling force
-        set force item 1 (mdc.LJ-potential-and-force-1sig (ceiling-ycor - ycor))
+        report item 1 (mdc.LJ-potential-and-force-1sig (ceiling-ycor - ycor))
       ]
       ycor < (floor-ycor + (2 * r-min)) [  ; floor force
-        set force item 1 (mdc.LJ-potential-and-force-1sig (ycor - ceiling-ycor))
+        report item 1 (mdc.LJ-potential-and-force-1sig (ycor - ceiling-ycor))
       ]
     )
+  ] [
+    ; no ceiling or force
+    report 0
   ]
-
-  report force
-
 end
 
 to-report mp.update-external-force [ n-fx n-fy ]
   ;; atom procedure. n-fx and n-fy are the new forces the atoms feels this tick
   if not pinned? [
-      ; adjust the forces to account for any external applied forces
+    ; adjust the forces to account for any external applied forces
 
     let ex-force 0  ; external force is 0 by default
 
-      if ex-force-applied? [
-        ifelse force-mode = "Tension" and auto-increment-force? [
-          set ex-force ( - n-fx + 0.001 )  ; In tension, we want ex-force to cancel out any force plus a little more
-          set auto-increment-force auto-increment-force + ex-force ; auto-increment-force reports total ex-force in the x-direction
-          set n-fy 0 ; in tension, we want atoms with external force to not have any force in y-direction to prevent movement in that direction
-        ] [
+    if ex-force-applied? [
+      ifelse force-mode = "Tension" and auto-increment-force? [
+        ;; if force is negative (atom is being pulled back) counteract that force plus a little. If not, don't do anything.
+        set ex-force ifelse-value n-fx < 0 [( - n-fx + 0.001 )] [0]
+        set auto-increment-force auto-increment-force + ex-force ; auto-increment-force reports total ex-force in the x-direction
+        set n-fy 0 ; in tension, we want atoms with external force to not have any force in y-direction to prevent movement in that direction
+      ] [
         ; if force-mode is not tension and this is a forced atom, simply apply external-force
-          set shape "circle-dot"
-          set ex-force ( force-applied / num-forced-atoms )
-        ]
+        set shape "circle-dot"
+        set ex-force ( force-applied / num-forced-atoms )
       ]
-      if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
-      set n-fx ex-force + n-fx
     ]
+    if shape = "circle-dot" and not ex-force-applied? [ set shape "circle" ]
+    set n-fx ex-force + n-fx
+  ]
   report list n-fx n-fy
 end
 
 to-report mp.strain ; tension only
-  report ((right-fl - left-edge) - orig-length) / orig-length
+  ; report ((right-fl - left-edge) - orig-length) / orig-length
+  report ((mean [xcor] of right-neck-atoms) - (mean [xcor] of left-neck-atoms) - orig-length) / orig-length
 end
 
 to-report mp.stress ; tension only
@@ -682,8 +564,10 @@ end
 
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; mdc procedure
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; MDC procedures
 to mdc.setup-constants
   set dt .01
   set kb 0.1 ; just picking a random constant for Kb that makes things work reasonably
@@ -1160,10 +1044,6 @@ to-report mdc.calc-pair-PE-with-2sig [other-atom]
   report first PE-and-force
 end
 
-to-report mdc.calc-pair-PE-and-force-with-2sig [other-atom]
-  report mdc.LJ-potential-and-force-2sig (distance other-atom) sigma  [sigma] of other-atom
-end
-
 
 ;; velocity verlet used by both
 
@@ -1176,9 +1056,129 @@ to-report mdc.velocity-verlet-velocity [v a new-a]  ; velocity, previous acceler
 end
 
 
-;; VIZ procedures
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; aep procedures
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+to aep.init-atom
+  set selected? false
+  aep.set-size
+end
+
+to aep.setup-messages
+  crt 1 [
+    setxy 2.5 2.5
+    set size 0
+    set message1 self
+  ]
+  crt 1 [
+    setxy 3 2.25
+    set size 0
+    set message2 self
+  ]
+end
+
+;;*******************************************************
+;;**************** Go Procedures ************************
+;;*******************************************************
+
+to aep.update-atom-size-viz
+  if atom-viz-size != prev-atom-viz-size [
+    ask atoms [aep.set-size]
+  ]
+  set prev-atom-viz-size  atom-viz-size
+end
+
+
+;; *****************************************************
+;; *********      Interaction Procedures      **********
+;; *****************************************************
+
+; ncolor & nsigma taken as input arguments, they are interface elements in Point Defects
+to aep.add-atoms [ncolor nsigma]
+  if mouse-down? and not any? atoms with [distancexy mouse-xcor mouse-ycor < .2] [
+    let closest-atom min-one-of atoms [distancexy mouse-xcor mouse-ycor]
+    let new-atom-force last [mdc.LJ-potential-and-force-2sig (distancexy mouse-xcor mouse-ycor) sigma nsigma] of closest-atom
+
+    ifelse abs new-atom-force < 30 [
+
+      create-atoms 1 [
+        mdc.init-atom
+        aep.init-atom
+        set sigma nsigma
+        set mass sigma ^ 2  ; mass is proportional to radius squared (because in 2D)
+        aep.set-size
+        set base-color read-from-string ncolor
+        set color base-color
+        setxy mouse-xcor mouse-ycor
+      ]
+      wait 0.1
+    ] [
+      ask message1 [set label "Adding that atom there will make things explode!"]
+      ask message2 [set label "(if you are very precise it is possible to add an interstitial)"]
+      display
+      wait 1
+      ask message1 [set label ""]
+      ask message2 [set label ""]
+    ]
+  ]
+end
+
+
+to aep.delete-atoms
+  if mouse-down? [
+    ask atoms with [xcor <= mouse-xcor + .5 and xcor > mouse-xcor - .5
+      and ycor <= mouse-ycor + .433 and ycor > mouse-ycor - .433 ] [die]
+    display
+  ]
+
+end
+
+
+to aep.select-atoms
+  if mouse-down? [
+    ask atoms with [distancexy mouse-xcor mouse-ycor < (1 / 2)] [
+      set selected? not selected?
+      aep.set-shape
+    ]
+    wait 0.1
+  ]
+end
+
+to aep.set-shape
+  ifelse selected? [
+    ;set shape "circle 2"
+    set shape "circle-s"
+  ] [
+    set shape "circle"
+  ]
+end
+
+
+to aep.change-atom-size [change]
+  ask atoms with [selected?] [
+    set sigma precision (sigma + change) 2
+    (ifelse ; limit how small/big it can get
+      sigma < 0.1 [set sigma 0.1]
+      sigma > 3 [set sigma 3]
+    )
+    ; mass is proportional to radius (it maybe should be sigma ^ 2 to be proportional to area,
+    ;     but atoms don't actually behave that way. Heavier atoms in the same period actually have
+    ;     a smaller radius)
+    set mass sigma
+    aep.set-size
+  ]
+end
+
+
+to aep.set-size
+  set size sigma * atom-viz-size
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; VAB procedures
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 to vab.setup-links
-  set link-check-dist 1.5
+  set link-check-dist 1.7
   set min-sigma-for-links 0.5
   ask atoms with [size >= min-sigma-for-links] [
     vab.update-links in-radius-linkable-atoms
@@ -1267,28 +1267,30 @@ to vab.color-links
         set color insert-item 3 tmp-color 125 ])
   ]
 end
+
+; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-220
+240
 10
-693
-484
+668
+439
 -1
 -1
-27.4
+20.0
 1
 10
 1
 1
 1
 0
-0
+1
 0
 1
--8
-8
--8
-8
+-10
+10
+-10
+10
 1
 1
 1
@@ -1297,9 +1299,9 @@ ticks
 
 BUTTON
 0
-130
-100
-163
+85
+86
+118
 NIL
 setup
 NIL
@@ -1313,10 +1315,10 @@ NIL
 1
 
 BUTTON
-110
-130
-210
-163
+94
+85
+179
+118
 NIL
 go
 T
@@ -1329,59 +1331,43 @@ NIL
 NIL
 0
 
-SLIDER
-0
-400
-210
-433
-force-applied
-force-applied
-0
-30
-0.0
-.1
-1
-N
-HORIZONTAL
-
 SWITCH
-0
+680
+65
+907
+98
+color-atoms-by-PE?
+color-atoms-by-PE?
+1
+1
+-1000
+
+CHOOSER
+680
 10
-210
-43
-create-dislocation?
-create-dislocation?
+845
+55
+lattice-view
+lattice-view
+"large-atoms" "small-atoms" "hide-atoms"
 0
-1
--1000
 
 SWITCH
-695
-60
-920
-93
-color-atoms-by-PE?
-color-atoms-by-PE?
-1
-1
--1000
-
-SWITCH
-695
+680
 100
-925
+910
 133
 show-diagonal-right-links?
 show-diagonal-right-links?
-0
+1
 1
 -1000
 
 SWITCH
-695
-140
-925
-173
+680
+135
+910
+168
 show-diagonal-left-links?
 show-diagonal-left-links?
 1
@@ -1389,10 +1375,10 @@ show-diagonal-left-links?
 -1000
 
 SWITCH
-695
-180
-925
-213
+680
+170
+910
+203
 show-horizontal-links?
 show-horizontal-links?
 1
@@ -1401,172 +1387,190 @@ show-horizontal-links?
 
 SLIDER
 0
-45
-210
-78
+10
+172
+43
 atoms-per-row
 atoms-per-row
 5
-20
-11.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-0
-80
-210
-113
-atoms-per-column
-atoms-per-column
-5
-20
+15
 10.0
 1
 1
 NIL
 HORIZONTAL
 
-MONITOR
+SLIDER
 0
-435
-210
-480
-external force per forced atom (N)
-mp.report-indiv-ex-force
-3
+45
+172
+78
+atoms-per-column
+atoms-per-column
+5
+15
+9.0
 1
-11
+1
+NIL
+HORIZONTAL
+
+PLOT
+0
+175
+235
+435
+Stress-Strain Curve
+strain
+stress
+0.0
+0.2
+0.0
+4.0
+false
+false
+"" ""
+PENS
+"default" 1.0 2 -16777216 true "" "plotxy mp.strain mp.stress"
 
 TEXTBOX
-695
-220
-845
-238
+510
+365
+660
+383
 NIL
 11
 0.0
 1
 
 TEXTBOX
-695
+685
 220
-845
-248
-Color Key\nLinks:
-11
+835
+251
+Color Key\n
+13
 0.0
 1
 
 TEXTBOX
-705
-245
-880
-263
+690
+260
+865
+278
 high compression: dark red
 11
 13.0
 1
 
 TEXTBOX
-705
-260
-975
-278
+690
+275
+960
+293
 low compression: light red (+ grey tone)
 11
 18.0
 1
 
 TEXTBOX
-704
-274
-854
-292
+689
+289
+839
+307
 equilibrium: grey
 11
 5.0
 1
 
 TEXTBOX
-704
-287
-974
-315
+689
+302
+959
+330
 low tension: light yellow (+ grey tone)
 11
 0.0
 1
 
 TEXTBOX
-705
-303
-865
-321
+690
+318
+850
+336
 high tension: dark yellow
 11
 44.0
 1
 
 TEXTBOX
-695
-320
-850
-338
+690
+345
+845
+363
 Atoms:
-11
+13
 0.0
 1
 
 TEXTBOX
-705
-335
-975
-353
+690
+360
+960
+378
 low potential energy: dark blue
 11
 103.0
 1
 
 TEXTBOX
-705
-350
-990
-378
+690
+375
+975
+403
 high potential energy: light blue (-> white)
 11
 107.0
 1
 
 TEXTBOX
-705
-365
-965
-446
-pinned atoms (do not move): black cross\natoms affected by an external force: \nblack dot, near a white line with \narrows on the end
+690
+390
+950
+471
+pinned atoms (do not move): black X\natoms affected by external force: black dot
 11
 0.0
 1
 
-CHOOSER
-45
-295
-155
-340
-new-color
-new-color
-"red" "violet" "green" "orange" "blue"
+TEXTBOX
+690
+245
+840
+263
+Links:
+13
+0.0
 1
 
-BUTTON
+SWITCH
 0
-255
-95
-288
-decrease-size
-aep.change-atom-size (- .1)\nrepeat 5 [go]
+120
+180
+153
+auto-increment-force?
+auto-increment-force?
+0
+1
+-1000
+
+BUTTON
+70
+440
+187
+473
+extend x-axis
+set-current-plot \"Stress-Strain Curve\"\nset-plot-x-range 0 precision (plot-x-max + 0.1) 1\n
 NIL
 1
 T
@@ -1575,90 +1579,6 @@ NIL
 NIL
 NIL
 NIL
-1
-
-BUTTON
-100
-255
-212
-288
-increase-size
-aep.change-atom-size .1\nrepeat 5 [go]
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-CHOOSER
-695
-10
-920
-55
-lattice-view
-lattice-view
-"small-atoms" "large-atoms" "hide-atoms"
-1
-
-BUTTON
-0
-205
-107
-241
-select atoms
-interact
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
-
-TEXTBOX
-115
-195
-220
-250
-Click atoms to select them, then change their sizes with the buttons.
-11
-0.0
-1
-
-TEXTBOX
-40
-385
-190
-403
-Apply an external force
-11
-0.0
-1
-
-TEXTBOX
-0
-175
-215
-201
----------------------------------
-11
-0.0
-1
-
-TEXTBOX
-0
-355
-205
-381
---------------------------------
-11
-0.0
 1
 
 @#$#@#$#@
@@ -1883,21 +1803,6 @@ true
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 88 88 124
-
-circle-s
-false
-0
-Circle -7500403 true true 0 0 300
-Line -1 false 210 60 120 60
-Line -1 false 90 90 90 120
-Line -1 false 120 150 180 150
-Line -1 false 210 180 210 210
-Line -1 false 90 240 180 240
-Line -7500403 true 90 90 120 60
-Line -1 false 120 60 90 90
-Line -1 false 90 120 120 150
-Line -1 false 180 150 210 180
-Line -1 false 210 210 180 240
 
 circle-x
 false

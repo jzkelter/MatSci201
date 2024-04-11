@@ -43,10 +43,8 @@ globals [
   orig-length ; original length of sample
   prev-length ; length of sample in previous time step
   unpinned-min-ycor ; min unpinnned ycor for shear
-  top-neck-atoms ; agentset of atoms on the top of the neck (thin region) (tension).
-                 ; Used in calculating stress
-  bottom-neck-atoms ; agentset of atoms on the bottom of the neck (thin region) (tension).
-                    ; Used in calculating stress
+  left-neck-atoms ; agentset of atoms on the left of the neck (thin region) (tension). Used in calculating stress
+  right-neck-atoms ; agentset of atoms on the right of the neck (thin region) (tension). Used in calculating stress
   num-forced-atoms ; number of atoms receiving external force directly
   auto-increment-force ; force to counteract LJ forces in the x-direction (tension)
   cross-section
@@ -231,6 +229,10 @@ to mp.setup-force-mode-shape-and-pinned
         set shape "circle-dot"
       ]
       set num-forced-atoms count atoms with [ex-force-applied?]
+
+      set left-neck-atoms atoms with [xcor >= (x-min + 2.5) and xcor < (x-min + 3.5)]
+      set right-neck-atoms atoms with [xcor <= (xmax - 2.5) and xcor > (xmax - 3.5)]
+
     ]
     force-mode = "Compression" [
       ask atoms with [xcor = xmax or xcor = xmax - (x-dist / 2) ] [set pinned? true]
@@ -290,7 +292,8 @@ to mp.setup-force-lines
     create-fl-ends 2
     set right-fl xmax
     set left-edge x-min
-    set orig-length right-fl - left-edge
+    ; set orig-length right-fl - left-edge
+    set orig-length (mean [xcor] of right-neck-atoms) - (mean [xcor] of left-neck-atoms)
     ask one-of fl-ends with [xcor = 0 and ycor = 0] [
       set xcor right-fl
       set ycor ymax + (y-dist * 2) ]
@@ -382,7 +385,7 @@ to mp.setup-cross-section
     let xcenter (max-pxcor + min-pxcor) / 2
     let top-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-max [ycor]
     let bottom-neck-ycor [ycor] of one-of atoms with [xcor >= xcenter and xcor <= xcenter + r-min ] with-min [ycor]
-    set cross-section top-neck-ycor - bottom-neck-ycor
+    set cross-section top-neck-ycor - bottom-neck-ycor + [sigma] of one-of atoms  ;; include sigma so that a one-atom thick string doesn't have zero cross-section
   ]
 end
 
@@ -520,7 +523,8 @@ to-report mp.update-external-force [ n-fx n-fy ]
 end
 
 to-report mp.strain ; tension only
-  report ((right-fl - left-edge) - orig-length) / orig-length
+  ; report ((right-fl - left-edge) - orig-length) / orig-length
+  report ((mean [xcor] of right-neck-atoms) - (mean [xcor] of left-neck-atoms) - orig-length) / orig-length
 end
 
 to-report mp.stress ; tension only
@@ -1151,7 +1155,7 @@ end
 ;; VAB procedures
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 to vab.setup-links
-  set link-check-dist 1.5
+  set link-check-dist 1.7
   set min-sigma-for-links 0.5
   ask atoms with [size >= min-sigma-for-links] [
     vab.update-links in-radius-linkable-atoms
@@ -1397,7 +1401,7 @@ Stress-Strain Curve
 strain
 stress
 0.0
-0.1
+0.2
 0.0
 4.0
 false
@@ -1407,10 +1411,10 @@ PENS
 "default" 1.0 2 -16777216 true "" "plotxy mp.strain mp.stress"
 
 TEXTBOX
-673
-480
-823
-498
+510
+365
+660
+383
 NIL
 11
 0.0
