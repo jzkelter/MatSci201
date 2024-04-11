@@ -56,6 +56,13 @@ end
 ;; *****************************************************
 
 to go
+  (ifelse
+    go-mode = "simulate" [simulate]
+    go-mode = "draw-profile" [draw-profile]
+  )
+end
+
+to simulate
   hide-graph
   ask particles [
     rt random-float 360
@@ -171,8 +178,8 @@ end
 GRAPHICS-WINDOW
 220
 190
-659
-630
+658
+629
 -1
 -1
 20.5
@@ -193,13 +200,13 @@ GRAPHICS-WINDOW
 0
 1
 ticks
-30
+30.0
 
 BUTTON
-0
-150
-94
-183
+55
+165
+149
+198
 NIL
 setup
 NIL
@@ -214,9 +221,9 @@ NIL
 
 BUTTON
 120
-195
+206
 200
-228
+251
 NIL
 go
 T
@@ -237,22 +244,22 @@ PLOT
 atoms per xcor (concentration profile)
 NIL
 NIL
--10
-10
-0
-1000
+-10.0
+10.0
+0.0
+1000.0
 false
 true
 "" ""
 PENS
-"concentration" 1 1 -13345367 true "" "histogram [xcor + 0.5] of particles"
-"drawn profile" 1 0 -7500403 true "" "plot-pen-reset\nforeach sorted-graph-points [gp -> \nask gp [plotxy xcor concentration-from-ycor]\n]"
+"concentration" 1.0 1 -13345367 true "" "histogram [xcor + 0.5] of particles"
+"drawn profile" 1.0 0 -7500403 true "" "plot-pen-reset\nforeach sorted-graph-points [gp -> \nask gp [plotxy xcor concentration-from-ycor]\n]"
 
 BUTTON
 0
-305
+328
 90
-338
+361
 hide blue
 ask turtles with [color = blue] [ht]
 NIL
@@ -267,9 +274,9 @@ NIL
 
 BUTTON
 100
-305
+328
 195
-338
+361
 show blue
 ask turtles with [color = blue] [st]
 NIL
@@ -291,28 +298,11 @@ particles-on-setup
 particles-on-setup
 1000
 10000
-5000
+5000.0
 100
 1
 NIL
 HORIZONTAL
-
-BUTTON
-0
-195
-110
-228
-NIL
-draw-profile
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
 
 TEXTBOX
 2
@@ -321,14 +311,14 @@ TEXTBOX
 140
 Only 10% of blue particles are visualized in the atomic view, but all of them are accounted for in the graph.
 11
-0
+0.0
 1
 
 BUTTON
 0
-240
+263
 200
-273
+296
 reset previous drawn profile
 set-concentration-to-previous-drawing
 NIL
@@ -343,9 +333,9 @@ NIL
 
 BUTTON
 0
-345
+368
 90
-383
+406
 NIL
 clear-drawing
 NIL
@@ -360,9 +350,9 @@ NIL
 
 BUTTON
 100
-345
+368
 195
-383
+406
 turn one green
 ask one-of particles [set color green pd st]
 NIL
@@ -377,13 +367,24 @@ NIL
 
 TEXTBOX
 0
-280
+303
 200
-298
+321
 ----------------------------
 12
-0
+0.0
 1
+
+CHOOSER
+0
+206
+117
+251
+go-mode
+go-mode
+"simulate" "draw-profile"
+0
+
 @#$#@#$#@
 ## WHAT IS IT?
 
@@ -744,22 +745,22 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.2.2
+NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
 default
-0
--0.2 0 0 1
-0 1 1 0
-0.2 0 0 1
+0.0
+-0.2 0 0.0 1.0
+0.0 1 1.0 0.0
+0.2 0 0.0 1.0
 link direction
 true
 0
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-
+1
 @#$#@#$#@
