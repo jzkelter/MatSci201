@@ -1,101 +1,188 @@
-__includes [
-  "../nls-files/molecular-dynamics-core.nls"
-  "../nls-files/atom-editing-procedures.nls"
-  "../nls-files/visualize-atoms-and-bonds.nls"
+breed [graph-points graph-point]
+breed [particles particle]
+graph-points-own [
+  n-d-atoms
+  concentration
 ]
 
-;; the following breed is for the molecular-dynamics-core.nls file
-breed [atoms atom]
-
-atoms-own [
-  ;; the following variables are for the molecular-dynamics-core.nls file
-  fx     ; x-component of force vector from last time step
-  fy     ; y-component of force vector from last time step
-  vx     ; x-component of velocity vector
-  vy     ; y-component of velocity vector
-  mass   ; mass of atom
-  sigma  ; distnace at which intermolecular potential between 2 atoms of this typot-E is 0 (if they are different, we average their sigmas)
-  atom-PE ; Potential energy of the atom
-  pinned? ; False if the atom isn't pinned in place, True if it is (for boundaries)
-  base-color  ; display color for the atom when it isn't selected
-
-  ;; the following variable is for the atom-editing-procedures.nls file
-  selected? ; whether the atom is selected or  not to change its size
+globals [
+  graph-ycor
+  sorted-graph-points
 ]
 
 
-;*******************************************************
-;**************** Setup Procedures *********************
-;*******************************************************
+;; *****************************************************
+;; **************** SETUP PROCEDURES   *****************
+;; *****************************************************
 
 to setup
   clear-all
-  mdc.setup-constants
-  mdc.setup-cutoff-linear-functions-2sig
+  set graph-ycor 0
+  set-default-shape turtles "circle"
 
-  mdc.setup-atoms-nrc atoms-per-row atoms-per-column
-  mdc.pin-bottom-row
-  ask atoms [aep.init-atom]
-  mdc.init-velocity
+  create-particles particles-on-setup - 1 [
+    rt random 360
+    fd random-float 0.2
+    init-particle
+  ]
 
-  vab.setup-links
+  create-particles 1 [
+    init-particle
+    set color green
+    st
+    pen-down
+  ]
 
-  aep.setup-messages
-
+  create-axes
+  create-graph-pnts
+  hide-graph
   reset-ticks
 end
 
-
-;*******************************************************
-;**************** Go Procedures *********************
-;*******************************************************
-
-to go
-  simulate
-  interact
+to init-particle
+  set color blue
+    set size .5
+    set ycor random-ycor
+    if random-float 1 < .9 [
+      set color blue + 0.1
+      hide-turtle
+    ]
 end
 
 
+
+;; *****************************************************
+;; ************************ GO *************************
+;; *****************************************************
+
+to go
+  (ifelse
+    go-mode = "simulate" [simulate]
+    go-mode = "draw-profile" [draw-profile]
+  )
+end
+
 to simulate
-  aep.update-atom-size-viz
+  hide-graph
+  ask particles [
+    rt random-float 360
+    fd 1
+  ]
+  tick
+end
 
-  ask atom-links [ die ]
 
-  ; moving happens before velocity and force update in accordance with velocity verlet
-  mdc.move-atoms
+;; *****************************************************
+;; *** PROFILE DRAWING AND VISUALIZATION PROCEDURES ****
+;; *****************************************************
 
-  mdc.update-force-and-velocity-and-PE-2sig
-  vab.update-atom-color-and-links
 
-  mdc.scale-velocities
+to draw-profile
+  clear-drawing
+  show-graph
+  setup-plots
+  if mouse-down? [
 
-  vab.color-links  ; stylizing/coloring links
+    let prev-concentration 0
 
-  tick-advance dt
+    ask graph-points with [pxcor = round mouse-xcor] [
+      set ycor mouse-ycor
+      set prev-concentration concentration
+      set concentration concentration-from-ycor
+      if prev-concentration != concentration [
+        set-concentration-from-ycor
+      ]
+    ]
+  ]
+  reset-ticks
+end
+
+to set-concentration-from-ycor
+  let my-pxcor pxcor
+  ask particles with [pxcor = my-pxcor] [die]
+  hatch-particles concentration [
+    init-particle
+    set xcor my-pxcor
+    set ycor random-ycor
+  ]
+end
+
+to set-concentration-to-previous-drawing
+  ask graph-points [
+    set concentration concentration-from-ycor
+    set-concentration-from-ycor
+  ]
+  ask turtles with [color = blue] [st]
   update-plots
 end
 
-to interact
-  (ifelse
-    click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-2sig]
-    click-mode = "delete-atoms" [aep.delete-atoms]
-    click-mode = "add-atoms" [aep.add-atoms new-atom-color new-atom-sigma]
-    click-mode = "select-atoms" [aep.select-atoms]
-    )
+to create-particle
+  hatch-particles 1 [
+    init-particle
+  ]
+end
+
+to-report concentration-from-ycor
+  report 1000 * (ycor / max-pycor) ; precision ((graph-ycor - ycor) / graph-ycor) 2
 end
 
 
+to hide-graph
+  ask turtles with [any? my-links] [set hidden? true]
+  ask links [set hidden? true]
+end
 
-; See Info tab for full copyright and license.
+to show-graph
+  ask turtles with [any? my-links] [set hidden? false]
+  ask links [set hidden? false]
+end
+
+
+to create-graph-pnts
+  ask patches with [pycor = graph-ycor] [
+    sprout-graph-points 1 [
+      set color grey
+      set size 0.5
+    ]
+  ]
+  ask graph-points [
+    create-links-with other graph-points with [abs (xcor - [xcor] of myself) = 1] [
+      set thickness 0.3
+      set color grey
+    ]
+  ]
+  set sorted-graph-points sort-on [pxcor] graph-points
+end
+
+
+to create-axes
+  let origin-turtle nobody
+  crt 1 [
+    setxy (min-pxcor) graph-ycor
+    set origin-turtle self
+    set size 0
+  ]
+  crt 1 [
+    setxy max-pxcor graph-ycor
+    create-link-with origin-turtle [set thickness 0.2 set color white]
+    set size 0
+  ]
+  crt 1 [
+    setxy min-pxcor max-pycor
+    create-link-with origin-turtle [set thickness 0.2 set color white]
+    set size 0
+  ]
+
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
+220
 190
-10
-547
-368
+633
+304
 -1
 -1
-58.0
+12.43
 1
 10
 1
@@ -105,21 +192,21 @@ GRAPHICS-WINDOW
 0
 0
 1
--7
-7
--7
-7
-1
-1
+-40
+40
+0
+20
+0
+0
 1
 ticks
 30.0
 
 BUTTON
-0
-90
-80
-123
+55
+165
+149
+198
 NIL
 setup
 NIL
@@ -133,10 +220,10 @@ NIL
 1
 
 BUTTON
-85
-90
-170
-123
+120
+206
+200
+251
 NIL
 go
 T
@@ -149,172 +236,92 @@ NIL
 NIL
 0
 
+PLOT
+180
+10
+670
+185
+atoms per xcor (concentration profile)
+NIL
+NIL
+-20.0
+20.0
+0.0
+1000.0
+false
+true
+"" ""
+PENS
+"concentration" 1.0 1 -13345367 true "" "histogram [xcor + 0.5] of particles"
+"drawn profile" 1.0 0 -7500403 true "" "plot-pen-reset\nforeach sorted-graph-points [gp -> \nask gp [plotxy xcor concentration-from-ycor]\n]"
+"pen-2" 1.0 0 -16777216 true "" "histogram [xcor + 0.5] of particles"
+
+BUTTON
+0
+328
+90
+361
+hide blue
+ask turtles with [color = blue] [ht]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+100
+328
+195
+361
+show blue
+ask turtles with [color = blue] [st]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
 SLIDER
 0
-130
-175
-163
-temp
-temp
-0
-.2
-0.01
-.01
-1
-NIL
-HORIZONTAL
-
-SWITCH
-560
-150
-832
-183
-color-atoms-by-PE?
-color-atoms-by-PE?
-1
-1
--1000
-
-SWITCH
-560
 45
-790
+174
 78
-show-diagonal-right-links?
-show-diagonal-right-links?
-0
+particles-on-setup
+particles-on-setup
+1000
+10000
+10000.0
+100
 1
--1000
-
-SWITCH
-560
-80
-790
-113
-show-diagonal-left-links?
-show-diagonal-left-links?
-0
-1
--1000
-
-SWITCH
-560
-115
-790
-148
-show-horizontal-links?
-show-horizontal-links?
-0
-1
--1000
-
-TEXTBOX
-560
-195
-710
-213
 NIL
+HORIZONTAL
+
+TEXTBOX
+2
+84
+152
+140
+Only 10% of blue particles are visualized in the atomic view, but all of them are accounted for in the graph.
 11
 0.0
-1
-
-TEXTBOX
-560
-195
-710
-235
-Color Key\nLinks:
-12
-0.0
-1
-
-TEXTBOX
-565
-230
-740
-248
-high compression: dark red
-11
-13.0
-1
-
-TEXTBOX
-565
-245
-835
-263
-low compression: light red (+ grey tone)
-11
-18.0
-1
-
-TEXTBOX
-564
-259
-714
-277
-equilibrium: grey
-11
-5.0
-1
-
-TEXTBOX
-564
-272
-834
-300
-low tension: light yellow (+ grey tone)
-11
-0.0
-1
-
-TEXTBOX
-565
-288
-725
-306
-high tension: dark yellow
-11
-44.0
-1
-
-TEXTBOX
-560
-305
-715
-323
-Atoms:
-12
-0.0
-1
-
-TEXTBOX
-565
-320
-835
-338
-low potential energy: dark blue
-11
-103.0
-1
-
-TEXTBOX
-565
-335
-850
-363
-high potential energy: light blue (-> white)
-11
-107.0
 1
 
 BUTTON
-95
-230
-180
+0
 263
-increase-size
-aep.change-atom-size .1
+200
+296
+reset previous drawn profile
+set-concentration-to-previous-drawing
 NIL
 1
 T
@@ -327,11 +334,11 @@ NIL
 
 BUTTON
 0
-230
-85
-263
-decrease-size
-aep.change-atom-size (- .1)
+368
+90
+406
+NIL
+clear-drawing
 NIL
 1
 T
@@ -342,117 +349,97 @@ NIL
 NIL
 1
 
-SLIDER
-560
-10
-737
-43
-atom-viz-size
-atom-viz-size
-0
-1.1
-0.8
-.1
-1
-sigma
-HORIZONTAL
-
-SLIDER
-0
-325
-180
-358
-new-atom-sigma
-new-atom-sigma
-.2
-1.3
-0.2
-.1
-1
+BUTTON
+100
+368
+195
+406
+turn one green
+ask one-of particles [set color green pd st]
 NIL
-HORIZONTAL
-
-CHOOSER
-75
-275
-180
-320
-new-atom-color
-new-atom-color
-"red" "violet" "green" "orange" "blue"
 1
-
-CHOOSER
-40
-170
-145
-215
-click-mode
-click-mode
-"drag-atoms" "delete-atoms" "add-atoms" "select-atoms"
-3
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 TEXTBOX
 0
-275
-80
-325
-settings for adding new atoms
+303
+200
+321
+----------------------------
 12
 0.0
 1
 
-TEXTBOX
-5
-215
-175
-241
-For changing selected atoms
-12
-0.0
-1
-
-SLIDER
+CHOOSER
 0
-10
-172
-43
-atoms-per-row
-atoms-per-row
-1
-5
-5.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
+206
+117
+251
+go-mode
+go-mode
+"simulate" "draw-profile"
 0
-50
-172
-83
-atoms-per-column
-atoms-per-column
-1
-5
-5.0
-1
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-295
-330
-445
-348
-Atoms with X don't move
-11
-9.9
-1
 
 @#$#@#$#@
+## WHAT IS IT?
+
+This is a model of random-walk diffusion. Atoms are in constant motion (unless they are at absolute zero temperature). When they collide with each other, they change directions. When dealing with a large number of atoms, they collide frequently. To model this behavior simply, we can ignore their collisions and just model atoms as changing to a random direction every time step. 
+
+## HOW IT WORKS
+
+Each tick, each atom turns to a random directioni and moves forward 1 patch-length. 
+Because there are so many atoms in the model, we only visualize 1 / 10 of them in the view. All of them are counted in the concentration profile, but only 1 / 10 are shown diffusing in the view. If we showed all of them in the view, it would just look like a block of blue. 
+
+Drawing the concentration profile moves the graph-point turtles to the location of the mouse and then sets the concentration at that x-coordinate based on the height of the graph.
+
+## HOW TO USE IT
+
+Choose the number of particles you want to model with PARTICLES-ON-SETUP.
+
+Click SETUP to initialize the model. Initially, all the particles will have an x-coordinate of 0 and a random y-coordinate. 
+
+You can use the DRAW-PROFILE button to draw a concentration profile. When doing this, the maximum number of atoms per x-coordinate is 1000. 
+
+Press GO to run the model. 
+
+
+The HIDE BLUE button will hide all the blue atoms in the view. They are still being modeled and counted in the concentration profile. Click SHOW BLUE to show them again. 
+
+CLEAR DRAWING will erase the drawing of the green particle's path. 
+
+TURN ONE GREEN will turn an additional particle green, and it will start drawing its path. 
+
+
+## THINGS TO NOTICE
+
+- Notice how the concentration profile changes over time. Under what conditions does it change quickly and under what conditions slowly?
+- What is the equilibrium concentration profile?
+
+## THINGS TO TRY
+
+- Try sketching differrent concentration profiles and see how they change over time. 
+- See if you can come with a way of predicting how the profile will change over time. 
+
+## EXTENDING THE MODEL
+
+- Try adding more lines to the concentration profile to show how the concentration profile evolves over time. 
+- Try making the atoms slightly more likely to move in certain directions (this could model, for example, ions diffusing in the presence of an electric field that biases them to move in a certain direction). How does this change the concentration profile?
+
+## NETLOGO FEATURES
+
+Sketching the concentration profile is done with the mouse-xcor and mouse-ycor. The graph-point turtles are moved to the position of the mouse and they are connected with links to make it look like a graph. 
+
+## RELATED MODELS
+
+Solid Difusion
+
+## CREDITS AND REFERENCES
 @#$#@#$#@
 default
 true
@@ -520,41 +507,6 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
-
-circle+
-false
-0
-Circle -7500403 true true 0 0 300
-Rectangle -16777216 true false 0 135 300 165
-Rectangle -16777216 true false 135 -15 165 300
-
-circle-dot
-true
-0
-Circle -7500403 true true 0 0 300
-Circle -16777216 true false 88 88 124
-
-circle-s
-false
-0
-Circle -7500403 true true 0 0 300
-Line -1 false 210 60 120 60
-Line -1 false 90 90 90 120
-Line -1 false 120 150 180 150
-Line -1 false 210 180 210 210
-Line -1 false 90 240 180 240
-Line -7500403 true 90 90 120 60
-Line -1 false 120 60 90 90
-Line -1 false 90 120 120 150
-Line -1 false 180 150 210 180
-Line -1 false 210 210 180 240
-
-circle-x
-false
-0
-Circle -7500403 true true 0 0 300
-Polygon -16777216 true false 240 30 30 240 60 270 270 60
-Polygon -16777216 true false 30 60 240 270 270 240 60 30
 
 cow
 false
@@ -681,6 +633,22 @@ Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
 Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
 Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
 
+sheep
+false
+15
+Circle -1 true true 203 65 88
+Circle -1 true true 70 65 162
+Circle -1 true true 150 105 120
+Polygon -7500403 true false 218 120 240 165 255 165 278 120
+Circle -7500403 true false 214 72 67
+Rectangle -1 true true 164 223 179 298
+Polygon -1 true true 45 285 30 285 30 240 15 195 45 210
+Circle -1 true true 3 83 150
+Rectangle -1 true true 65 221 80 296
+Polygon -1 true true 195 285 210 285 210 240 240 210 195 210
+Polygon -7500403 true false 276 85 285 105 302 99 294 83
+Polygon -7500403 true false 219 85 210 105 193 99 201 83
+
 square
 false
 0
@@ -764,6 +732,13 @@ Line -7500403 true 216 40 79 269
 Line -7500403 true 40 84 269 221
 Line -7500403 true 40 216 269 79
 Line -7500403 true 84 40 221 269
+
+wolf
+false
+0
+Polygon -16777216 true false 253 133 245 131 245 133
+Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
+Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
 
 x
 false

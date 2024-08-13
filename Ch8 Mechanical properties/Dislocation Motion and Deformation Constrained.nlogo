@@ -42,10 +42,12 @@ to setup
   mdc.setup-cutoff-linear-functions-2sig
 
   mdc.setup-atoms-nrc atoms-per-row atoms-per-column
+
   ask atoms [
     mp.init-atom
     aep.init-atom
   ]
+
   mp.setup-force-mode-shape-and-pinned
 
 
@@ -104,7 +106,7 @@ to interact
     (ifelse
       click-mode = "drag-atoms" [mdc.drag-atoms-with-mouse-2sig]
       click-mode = "delete-atoms" [aep.delete-atoms]
-      click-mode = "add-atoms" [aep.add-atoms new-color new-atom-sigma]
+      click-mode = "add-atoms" [aep.add-atoms new-atom-color new-atom-sigma]
       click-mode = "select-atoms" [aep.select-atoms]
     )
     display
@@ -119,11 +121,11 @@ end
 GRAPHICS-WINDOW
 220
 10
-643
-434
+718
+430
 -1
 -1
-24.412
+19.6
 1
 10
 1
@@ -133,10 +135,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--8
-8
--8
-8
+-12
+12
+-10
+10
 1
 1
 1
@@ -199,15 +201,15 @@ SWITCH
 83
 create-dislocation?
 create-dislocation?
-0
+1
 1
 -1000
 
 SWITCH
-695
-55
-922
-88
+845
+45
+1072
+78
 color-atoms-by-PE?
 color-atoms-by-PE?
 1
@@ -215,10 +217,10 @@ color-atoms-by-PE?
 -1000
 
 SWITCH
-695
-90
-925
-123
+845
+80
+1075
+113
 show-diagonal-right-links?
 show-diagonal-right-links?
 0
@@ -226,21 +228,21 @@ show-diagonal-right-links?
 -1000
 
 SWITCH
-695
-125
-925
-158
+845
+115
+1075
+148
 show-diagonal-left-links?
 show-diagonal-left-links?
-0
+1
 1
 -1000
 
 SWITCH
-695
-160
-925
-193
+845
+150
+1075
+183
 show-horizontal-links?
 show-horizontal-links?
 0
@@ -256,7 +258,7 @@ atoms-per-row
 atoms-per-row
 5
 20
-10.0
+20.0
 1
 1
 NIL
@@ -271,7 +273,7 @@ atoms-per-column
 atoms-per-column
 5
 20
-10.0
+15.0
 1
 1
 NIL
@@ -289,110 +291,110 @@ mp.report-indiv-ex-force
 11
 
 TEXTBOX
-705
-210
 855
-228
+190
+1005
+208
 NIL
 11
 0.0
 1
 
 TEXTBOX
-705
-210
 855
-238
+190
+1005
+218
 Color Key\nLinks:
 11
 0.0
 1
 
 TEXTBOX
-715
-235
-890
-253
+865
+225
+1040
+243
 high compression: dark red
 11
 13.0
 1
 
 TEXTBOX
-715
-250
-985
-268
+865
+240
+1135
+258
 low compression: light red (+ grey tone)
 11
 18.0
 1
 
 TEXTBOX
-714
-264
 864
-282
+254
+1014
+272
 equilibrium: grey
 11
 5.0
 1
 
 TEXTBOX
-714
-277
-984
-305
+864
+267
+1134
+295
 low tension: light yellow (+ grey tone)
 11
 0.0
 1
 
 TEXTBOX
-715
-293
-875
-311
+865
+283
+1025
+301
 high tension: dark yellow
 11
 44.0
 1
 
 TEXTBOX
-705
-310
-860
-328
+855
+300
+1010
+318
 Atoms:
 11
 0.0
 1
 
 TEXTBOX
-715
-325
-985
-343
+865
+315
+1135
+333
 low potential energy: dark blue
 11
 103.0
 1
 
 TEXTBOX
-715
-340
-1000
-368
+865
+330
+1150
+358
 high potential energy: light blue (-> white)
 11
 107.0
 1
 
 TEXTBOX
-715
-355
-975
-436
+865
+345
+1125
+426
 pinned atoms (do not move): black cross\natoms affected by an external force: \nblack dot, near a white line with \narrows on the end
 11
 0.0
@@ -417,17 +419,17 @@ CHOOSER
 click-mode
 click-mode
 "drag-atoms" "delete-atoms" "add-atoms" "select-atoms"
-2
+3
 
 CHOOSER
 100
 385
 210
 430
-new-color
-new-color
+new-atom-color
+new-atom-color
 "red" "violet" "green" "orange" "blue"
-1
+4
 
 SLIDER
 0
@@ -438,7 +440,7 @@ new-atom-sigma
 new-atom-sigma
 0.2
 1.3
-0.2
+1.0
 .1
 1
 NIL
@@ -499,10 +501,10 @@ Settings for adding new atoms
 1
 
 CHOOSER
-720
-10
-858
-55
+870
+0
+1008
+45
 lattice-view
 lattice-view
 "small-atoms" "large-atoms" "hide-atoms"

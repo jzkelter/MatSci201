@@ -123,7 +123,7 @@ to aep.change-atom-size [change]
     ;     a smaller radius)
     set mass 1 
     aep.set-size
-    set base-color read-from-string new-color
+    set base-color read-from-string new-atom-color
     set color base-color
   ]
 end
