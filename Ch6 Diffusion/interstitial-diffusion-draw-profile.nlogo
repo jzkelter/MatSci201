@@ -1,25 +1,29 @@
-breed [l-atoms l-atom]
-breed [d-atoms d-atom]
-breed [graph-points graph-point]
+breed [l-atoms l-atom]            ;; lattice atoms
+breed [d-atoms d-atom]            ;; diffusing atoms
+breed [graph-points graph-point]  ;; these are used to draw the graph when sketching a concentration profile
 
 graph-points-own [
-  n-d-atoms
-  concentration
+  num-d-atoms        ;; the number of diffusing atoms at this graph-point's x-position
+  concentration      ;; the concentration of diffusing atoms at this graph-point's x-position.
 ]
 
 globals [
-  graph-ycor
-  sorted-graph-points
+  graph-min-ycor       ;; the ycor which the bottom of the graph when sketching a concentration profile
+  sorted-graph-points  ;; a list to hold the graph-points in sorted order for plotting purposes
 ]
 
+
+;*********************************************
 ;*************SETUP PROCEDURES****************
+;*********************************************
 to setup
   clear-all
 
-  set graph-ycor (max-pycor - 25)
   set-default-shape turtles "circle"
+  set graph-min-ycor (max-pycor - 25)
 
-  ask patches with [pxcor < max-pxcor] [  ;
+  ; Create lattice atoms
+  ask patches with [pxcor < max-pxcor] [
     sprout-l-atoms 1 [
       set color blue
       set size 0.9
@@ -30,7 +34,8 @@ to setup
 
   ; Initialize bulk concentration
   ask patches with [pxcor <= (min-pxcor + initial-columns-populated)] [
-    if random-float 1 < initial-bulk-concentration [ ;; Create an atom with probability equal to the intial bulk concentration
+    ;; Create an atom with probability equal to the intial bulk concentration
+    if random-float 1 < initial-bulk-concentration [
       create-d-atom
     ]
   ]
@@ -38,7 +43,6 @@ to setup
   ; Initialize surface concentrations
   if constant-left-surface? [set-constant-left-surface]
   if constant-right-surface? [set-constant-right-surface]
-
 
   ; Create the graph for drawing concentration profiles
   create-axes
@@ -50,6 +54,7 @@ to setup
 end
 
 
+; patch procedure to create a diffusing atom
 to create-d-atom
     sprout-d-atoms 1 [
       set color yellow
@@ -57,8 +62,9 @@ to create-d-atom
     ]
 end
 
-
+;******************************************
 ;*************GO PROCEDURES****************
+;******************************************
 
 to go
   (ifelse
@@ -68,15 +74,21 @@ to go
 end
 
 
+; observer procedure to run the simulation. This would normally be
+; the go procedure but since there are two go-modes, the code for
+; running the simulation is in this procedure
 to simulate
   if ticks = 0 [
     hide-graph
     ask l-atoms [show-turtle]
   ]
+
   if ticks >= max-ticks [stop]
 
+  ; The core of the diffusion model is diffusing atoms executing a random walk
   ask d-atoms [random-walk]
 
+  ; If either of the surfaces are being held at constant concentration, it needs to be set
   if constant-left-surface? [set-constant-left-surface]
   if constant-right-surface? [set-constant-right-surface]
 
@@ -85,15 +97,24 @@ to simulate
 end
 
 
+; turtle procedure for atoms  to random walk
 to random-walk
+  ; This random-walk procedure picks a direction and then moves to that site if it is open.
+  ; It is important to use this instead of `move-to one-of neighbors4`, so that boundary atoms
+  ; have the same probability of moving inwards as non-boundary atoms have to move outwards.
+  ; Using `move-to one-of neighbors4` would result in boundary atoms having only three neighbors
+  ; and therefore a higher  probability of moving inwards than non-boundary atoms with four neighbrs
+  ; have of moving outwards.
+
   set heading one-of [0 90 180 270]  ; turn to one of 4 neighbors
-  let neighbor patch-ahead 1  ; if the d-atom is on a boundary and facing outside the world, this will be nobody. Important to use this instead of neighbors4 so that boundary atoms have same probability of moving inwards as atoms one away from the boundary have to move outwards.
+  let neighbor patch-ahead 1
   if neighbor != nobody and not any? d-atoms-on neighbor [
     move-to neighbor
   ]
 end
 
 
+; procedure to set the left surface concentration based on the left-surface-concentration slider
 to set-constant-left-surface
   ask patches with [pxcor = min-pxcor] [
     ask d-atoms-here [die] ;; First remove all atoms on the surface
@@ -104,6 +125,7 @@ to set-constant-left-surface
 end
 
 
+; procedure to set the right surface concentration based on the right-surface-concentration slider
 to set-constant-right-surface
   ask patches with [pxcor = max-pxcor] [
     ask d-atoms-here [die]  ;; First remove all atoms on the surface
@@ -114,21 +136,27 @@ to set-constant-right-surface
 end
 
 
-
+;************************************************************************
 ;*************CALCULATE AND PLOT CONCENTRATION PROFILE CODE**************
+;************************************************************************
 
+; procedure to calculate the concentration of d-atoms at each x-location and set the concentration
+; variable of each corresponding graph-point agent
 to calc-concentration
-  ask graph-points [set n-d-atoms 0]
+  ask graph-points [set num-d-atoms 0]
   ask d-atoms [
     let my-pxcor pxcor
-    ask graph-points with [pxcor = my-pxcor] [set n-d-atoms n-d-atoms + 1]
+    ask graph-points with [pxcor = my-pxcor] [set num-d-atoms num-d-atoms + 1]
   ]
   ask graph-points [
-    set concentration n-d-atoms / world-height
+    set concentration num-d-atoms / world-height
     set ycor ycor-from-concentration
   ]
 end
 
+; procedure to plot the concentration based on stored concentration variables
+; of the graph points. It is defined here rather than directly in the plot
+; so it can be resused multiple times.
 to plot-concentration
   foreach sorted-graph-points [gp -> ask gp [plotxy pxcor concentration]]
 end
@@ -139,50 +167,58 @@ end
 ;********************************************************************
 
 
+; hides the graph the user sketches with
 to hide-graph
   ask turtles with [any? my-links] [set hidden? true]
   ask links [set hidden? true]
 end
 
+; shows the graph the user sketches with
 to show-graph
   ask turtles with [any? my-links] [set hidden? false]
   ask links [set hidden? false]
 end
 
-
+; Create the graph-point agents that make up the user-sketched graph
 to create-graph-pnts
-  ask patches with [pycor = graph-ycor] [
+
+  ; create a graph-point at each x-position
+  ask patches with [pycor = graph-min-ycor] [
     sprout-graph-points 1 [
       set color yellow
       set size 0.5
     ]
   ]
+
+  ; link the graph points together so that they form a single curve
   ask graph-points [
     create-links-with other graph-points with [abs (xcor - [xcor] of myself) = 1] [
       set thickness 0.3
       set color yellow
     ]
   ]
-  set sorted-graph-points sort-on [pxcor] graph-points
+
+  set sorted-graph-points sort-on [pxcor] graph-points ; for plotting the graph
 end
 
 
+; procedure to allow the user to sketch a concentration profile
 to draw-profile
-  ask l-atoms [hide-turtle]
+  ask l-atoms [hide-turtle] ; hide the lattice atoms
   show-graph
-  setup-plots
-  if mouse-down? and mouse-ycor >= graph-ycor [
+  setup-plots ; reset the plots since we are resetting the concentration profile by doing this
 
+  if mouse-down? and mouse-ycor >= graph-min-ycor [
     let prev-concentration 0
 
-    ask graph-points with [pxcor = round mouse-xcor] [
-
-      set ycor mouse-ycor
+    ask graph-points with [pxcor = round mouse-xcor] [ ; get the graph point at the user's mouse position
+      set ycor mouse-ycor  ; move up to the mouse position
       set prev-concentration concentration
       set concentration concentration-from-ycor
 
-      if prev-concentration != concentration [
+      if prev-concentration != concentration [ ; if the concentration has changed (mouse moved)
         let my-pxcor pxcor
+        ; reset the number of d-atoms at this x-position to match the concentration
         ask d-atoms with [pxcor = my-pxcor] [die]
         ask up-to-n-of (world-height * concentration) patches with [pxcor = my-pxcor] [create-d-atom]
       ]
@@ -192,36 +228,41 @@ to draw-profile
 end
 
 
-
+; graph-point procedure to calculate the concentration represented by its ycor
 to-report concentration-from-ycor
-  report precision ((graph-ycor - ycor) / graph-ycor) 2
+  report precision ((graph-min-ycor - ycor) / graph-min-ycor) 2
 end
 
-
-
+; graph-point procedure to calculate what its ycor should be based on its concentration
 to-report ycor-from-concentration
-  report  graph-ycor * (1 - concentration)
+  report  graph-min-ycor * (1 - concentration)
 end
 
 
+; create the axes for the graph to sketch concentrations
 to create-axes
   let origin-turtle nobody
+
+  ; create a turtle for the origin
   crt 1 [
-    setxy (min-pxcor) graph-ycor
+    setxy (min-pxcor) graph-min-ycor
     set origin-turtle self
     set size 0
   ]
+
+  ; create a turtle for the end of the x-axis and connect it with the origin
   crt 1 [
-    setxy max-pxcor graph-ycor
+    setxy max-pxcor graph-min-ycor
     create-link-with origin-turtle [set thickness 0.2 set color white]
     set size 0
   ]
+
+  ; create a turtle for the end of the y-axis and connect it with the origin
   crt 1 [
     setxy min-pxcor max-pycor
     create-link-with origin-turtle [set thickness 0.2 set color white]
     set size 0
   ]
-
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -301,15 +342,15 @@ false
 false
 "clear-plot\nset-plot-x-range min-pxcor max-pxcor\n\n" ""
 PENS
-"default" 1.0 0 -7171555 true "" "plot-pen-reset\nplot-concentration\n"
-"Initial" 1.0 0 -4539718 true "" "if ticks = 0 [plot-concentration]"
-"pen-2" 1.0 0 -7500403 true "" "if ticks = 15 [plot-concentration]"
+"current" 1.0 0 -7171555 true "" "plot-pen-reset\nplot-concentration\n"
+"initial" 1.0 0 -4539718 true "" "if ticks = 0 [plot-concentration]"
+"after-15" 1.0 0 -7500403 true "" "if ticks = 15 [plot-concentration]"
 
 SWITCH
 0
-306
+315
 222
-339
+348
 constant-left-surface?
 constant-left-surface?
 1
@@ -318,9 +359,9 @@ constant-left-surface?
 
 SWITCH
 0
-384
+393
 222
-417
+426
 constant-right-surface?
 constant-right-surface?
 1
@@ -329,9 +370,9 @@ constant-right-surface?
 
 SLIDER
 0
-339
+348
 222
-372
+381
 left-surface-concentration
 left-surface-concentration
 0
@@ -344,9 +385,9 @@ HORIZONTAL
 
 SLIDER
 0
-416
+425
 222
-449
+458
 right-surface-concentration
 right-surface-concentration
 0
@@ -358,10 +399,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-0
-256
-179
-289
+25
+260
+204
+293
 show/hide lattice atoms
 ask l-atoms [set hidden? not hidden?]
 NIL
@@ -416,10 +457,10 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-103
-141
-264
-181
+115
+140
+255
+180
 Select \"draw-profile\" and click and drag in the world to change the concentration profile. 
 10
 0.0
@@ -428,7 +469,7 @@ Select \"draw-profile\" and click and drag in the world to change the concentrat
 CHOOSER
 0
 141
-92
+105
 186
 go-mode
 go-mode
@@ -438,12 +479,12 @@ go-mode
 @#$#@#$#@
 ## WHAT IS IT?
 
-This is a model of "interstitial" diffusion in solids. The atoms of many solids arrange themselves in an ordered structure called a lattice, and the spaces between the atoms are called "interstitial sites." Smaller atoms that about the size of the interstitial sites can then diffuse into these sites, which will change the properties of the material. For example, steel is mostly iron with small fraction of the interstitial sites filled by carbon atoms. 
+This is a model of "interstitial" diffusion in solids. The atoms of many solids arrange themselves in an ordered structure called a lattice, and the spaces between the atoms are called "interstitial sites." Smaller atoms that are about the size of the interstitial sites can then diffuse into these sites, which will change the properties of the material. For example, steel is mostly iron with a small fraction of the interstitial sites filled by carbon atoms. 
 
 ## HOW IT WORKS
-Large blue atoms are created on the corners of patches to form a lattice. The interstitial sites between the lattice atoms are then made up of patches. Small yellow atoms diffuse on the interstitial sites. Each tick, the diffusing atoms pick a random direction to jump to. If the neighboring interstitial site in that direction is empty, they jump to it, otherwise they stay put. 
+Large blue atoms are created on the corners of patches to form a lattice. The interstitial sites between the lattice atoms are then made up of patches. Small yellow atoms diffuse on the interstitial sites (on patches). Each tick, the diffusing atoms pick a random direction to jump to. If the neighboring interstitial site in that direction is empty, they jump to it, otherwise they stay put. 
 
-The concentration profile graph shows the fraction of interstitial sites that are filled by diffusing atoms. Note, that in real materials, usually on a small fraction of interstitial sites are filled, but in this model a large number, or even all of them can be filled. The grey line shows the concentration at the beginning of the run (or right after you finished sketching a concentration profile) and the yellow line shows the current concentrationi profile. The x-position on the concentration profile graph lines up with x-position in the view of the atoms. 
+The concentration profile graph shows the fraction of interstitial sites that are filled by diffusing atoms. Note, that in real materials, usually on a small fraction of interstitial sites are filled, but in this model a large number, or even all of them can be filled. The grey line shows the concentration at the beginning of the run (or right after you finished sketching a concentration profile) and the yellow line shows the current concentration profile. The x-position on the concentration profile graph lines up with x-position in the view of the atoms. 
 
 ## HOW TO USE IT
 
@@ -460,27 +501,31 @@ CONSTANT-LEFT-SURFACE? and CONSTANT-RIGHT-SURFACE? determine if the left and rig
 
 ## THINGS TO NOTICE
 
-- Notice how quickly or slowly the concentration profile changes. 
+- Can you predict whether the concentration profile will move up or down at each x-position? What does this depend on?
+- Notice how quickly or slowly the concentration profile changes at each x-position. What does this depend on?
 - The concentration profile will tend to change in one direction, but there are random fluctuations. Why? 
-- Can you predict which direction the concentration profile will tend to move?
+
 
 ## THINGS TO TRY
 - Try turning constant surface concentration off. What happens in the long run?
 - Try setting both surfaces to different constant concentrations. What happens? Try out different combinations. 
 
 ## EXTENDING THE MODEL
-
 - Try making the probability of jumping to a new site dependent on temperature
 - Try removing some of the lattice atoms and making the probability of jumping to a new site dependent on the number of lattice atoms neighboring that site
-- Try moving the lat
 
 ## NETLOGO FEATURES
+To get good statistics on the fraction of interstitial sites filled, this model extends really far in the y-direction. You have to scroll down to see how far the model world actually extends. This is unusual, because normally the whole model world is visible at once. 
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+This model also uses `mouse-down?`, `mouse-ycor`, and `mouse-xcor` to detect when the user is clicking the mouse and where it is to draw a concentration profile when the GO-MODE is set to "draw-profile". 
+
+The Concentration Profile graph uses if statements with the number of ticks to plot the concentrations at certain points in time and not change after tha. 
+
 
 ## RELATED MODELS
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+Solid Diffusion
+Random Grid Walk Example
 
 ## CREDITS AND REFERENCES
 
@@ -791,7 +836,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.3.0
+NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
